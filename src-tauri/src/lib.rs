@@ -193,6 +193,9 @@ pub fn run() {
             commands::reports::get_today_deliveries,
             commands::reports::quick_cash_cut,
             commands::reports::create_return,
+            // Updater
+            commands::updater::check_for_updates,
+            commands::updater::install_update,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "POS System",
+  "productName": "pos-system",
   "version": "0.1.0",
   "identifier": "com.josepaez.pos-system",
   "build": {

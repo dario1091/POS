@@ -237,6 +237,92 @@ export function HardwarePage() {
           </button>
         </div>
       </section>
+
+      {/* System Updates */}
+      <section className="mb-8 p-4 rounded-lg bg-card border border-border">
+        <h2 className="text-lg font-semibold text-foreground mb-3">Actualizaciones del Sistema</h2>
+        <UpdateSection />
+      </section>
+    </div>
+  );
+}
+
+function UpdateSection() {
+  const [checking, setChecking] = useState(false);
+  const [installing, setInstalling] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState<{
+    current_version: string; latest_version: string; has_update: boolean; download_url: string | null;
+  } | null>(null);
+  const [updateError, setUpdateError] = useState("");
+  const [updateSuccess, setUpdateSuccess] = useState("");
+
+  const checkUpdates = async () => {
+    setChecking(true);
+    setUpdateError("");
+    try {
+      const info = await api.checkForUpdates();
+      setUpdateInfo(info);
+      if (!info.has_update) {
+        setUpdateSuccess("Estás en la última versión");
+        setTimeout(() => setUpdateSuccess(""), 3000);
+      }
+    } catch (err) {
+      setUpdateError(String(err));
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  const installUpdate = async () => {
+    if (!updateInfo?.download_url) return;
+    setInstalling(true);
+    setUpdateError("");
+    try {
+      const msg = await api.installUpdate(updateInfo.download_url);
+      setUpdateSuccess(msg);
+      setUpdateInfo(null);
+    } catch (err) {
+      setUpdateError(String(err));
+    } finally {
+      setInstalling(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      {updateError && <p className="text-sm text-destructive">{updateError}</p>}
+      {updateSuccess && <p className="text-sm text-success">{updateSuccess}</p>}
+
+      {updateInfo && (
+        <div className="text-sm space-y-1">
+          <p className="text-muted-foreground">Versión actual: <span className="font-mono text-foreground">{updateInfo.current_version}</span></p>
+          <p className="text-muted-foreground">Última versión: <span className="font-mono text-foreground">{updateInfo.latest_version}</span></p>
+        </div>
+      )}
+
+      {updateInfo?.has_update ? (
+        <div className="flex gap-2">
+          <button
+            onClick={installUpdate}
+            disabled={installing}
+            className="px-4 py-2 rounded-md bg-success text-white text-sm font-medium hover:bg-success/90 disabled:opacity-50 transition-colors"
+          >
+            {installing ? "Instalando..." : `Actualizar a v${updateInfo.latest_version}`}
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={checkUpdates}
+          disabled={checking}
+          className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+        >
+          {checking ? "Verificando..." : "Buscar actualizaciones"}
+        </button>
+      )}
+
+      <p className="text-xs text-muted-foreground">
+        Al actualizar se pedirá la contraseña del sistema para instalar.
+      </p>
     </div>
   );
 }

@@ -131,4 +131,8 @@ export const api = {
   // Returns
   createReturn: (items: { product_id: number; product_name: string; quantity: number; unit_price: number }[], reason: string | null) =>
     invoke<{ id: number; total: number; items_count: number; created_at: string }>("create_return", { items, reason }),
+
+  // Updater
+  checkForUpdates: () => invoke<{ current_version: string; latest_version: string; has_update: boolean; download_url: string | null }>("check_for_updates"),
+  installUpdate: (downloadUrl: string) => invoke<string>("install_update", { downloadUrl }),
 };
