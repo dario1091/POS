@@ -1,0 +1,10 @@
+pub mod auth;
+pub mod users;
+pub mod products;
+pub mod categories;
+pub mod customers;
+pub mod sales;
+pub mod inventory;
+pub mod hardware;
+pub mod network;
+pub mod reports;
