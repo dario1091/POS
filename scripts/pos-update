@@ -2,7 +2,7 @@
 # pos-update: Actualiza POS System desde GitHub Releases
 # Instalar: sudo cp pos-update /usr/local/bin/ && sudo chmod +x /usr/local/bin/pos-update
 
-REPO="USUARIO/POS"  # ← Cambia esto por tu usuario/repo de GitHub
+REPO="dario1091/POS"  # GitHub repo
 
 echo "🔄 Buscando última versión de POS System..."
 
