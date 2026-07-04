@@ -133,6 +133,7 @@ pub fn run() {
             commands::auth::login,
             commands::auth::logout,
             commands::auth::get_current_user,
+            commands::auth::validate_admin_password,
             // Users
             commands::users::create_user,
             commands::users::update_user,

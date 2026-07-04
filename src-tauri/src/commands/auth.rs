@@ -81,3 +81,31 @@ pub fn hash_password(password: &str) -> Result<String, String> {
         .map_err(|e| format!("Failed to hash password: {}", e))?;
     Ok(password_hash.to_string())
 }
+
+#[tauri::command]
+pub fn validate_admin_password(password: String, state: State<'_, AppState>) -> Result<bool, String> {
+    let conn = state.db.get().map_err(|e| e.to_string())?;
+
+    // Get any active admin's password hash
+    let mut stmt = conn.prepare(
+        "SELECT password_hash FROM users WHERE role = 'admin' AND active = 1"
+    ).map_err(|e| e.to_string())?;
+
+    let hashes: Vec<String> = stmt.query_map([], |row| row.get(0))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    use argon2::password_hash::{PasswordHash, PasswordVerifier};
+    use argon2::Argon2;
+
+    for hash in &hashes {
+        if let Ok(parsed) = PasswordHash::new(hash) {
+            if Argon2::default().verify_password(password.as_bytes(), &parsed).is_ok() {
+                return Ok(true);
+            }
+        }
+    }
+
+    Ok(false)
+}

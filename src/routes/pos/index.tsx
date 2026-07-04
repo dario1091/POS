@@ -101,6 +101,12 @@ export function PosPage() {
   const [creditPaySearch, setCreditPaySearch] = useState("");
   const [creditPayResults, setCreditPayResults] = useState<Customer[]>([]);
 
+  // Admin auth modal (for sensitive operations)
+  const [showAdminAuthModal, setShowAdminAuthModal] = useState(false);
+  const [adminPassword, setAdminPassword] = useState("");
+  const [adminAuthCallback, setAdminAuthCallback] = useState<(() => void) | null>(null);
+  const [adminAuthError, setAdminAuthError] = useState("");
+
   // Computed
   const subtotal = cart.reduce((sum, item) => sum + item.product.sale_price * item.quantity - item.discount, 0);
   const total = subtotal;
@@ -200,15 +206,14 @@ export function PosPage() {
     if (anMatch) {
       const saleId = parseInt(anMatch[1]);
       setCommand("");
-      const reason = prompt("Motivo de la anulación:");
-      if (reason) {
-        try {
-          const result = await api.cancelSale(saleId, reason);
-          setSuccess(`✅ Venta #${result.sale_id} anulada. Stock restaurado (${result.items_restored} items). Total: $${result.total_restored.toFixed(2)}`);
-        } catch (err) {
-          setError(String(err));
+      requireAdminAuth(() => {
+        const reason = prompt("Motivo de la anulación:");
+        if (reason) {
+          api.cancelSale(saleId, reason).then((result) => {
+            setSuccess(`✅ Venta #${result.sale_id} anulada. Stock restaurado (${result.items_restored} items). Total: $${result.total_restored.toFixed(2)}`);
+          }).catch((err) => setError(String(err)));
         }
-      }
+      });
       return;
     }
 
@@ -382,6 +387,35 @@ export function PosPage() {
     }
   };
 
+  // Require admin password before sensitive operations
+  const requireAdminAuth = (callback: () => void) => {
+    // If current user is admin, skip password
+    if (user?.role === "admin") {
+      callback();
+      return;
+    }
+    setAdminPassword("");
+    setAdminAuthError("");
+    setAdminAuthCallback(() => callback);
+    setShowAdminAuthModal(true);
+    setTimeout(() => document.getElementById("admin-auth-input")?.focus(), 50);
+  };
+
+  const handleAdminAuth = async () => {
+    try {
+      const valid = await api.validateAdminPassword(adminPassword);
+      if (valid) {
+        setShowAdminAuthModal(false);
+        setAdminPassword("");
+        if (adminAuthCallback) adminAuthCallback();
+      } else {
+        setAdminAuthError("Clave incorrecta");
+      }
+    } catch (err) {
+      setAdminAuthError(String(err));
+    }
+  };
+
   // Handle cash delivery (EP command)
   const handleDelivery = async () => {
     const amount = parseFloat(deliveryAmount);
@@ -524,7 +558,7 @@ export function PosPage() {
       if (returnMode) {
         const inputVal = command.trim();
         if (inputVal === "0" || inputVal === "") {
-          handleReturn();
+          requireAdminAuth(() => handleReturn());
         } else {
           setError("Escribe 0 y presiona F1 para confirmar la devolución");
         }
@@ -676,7 +710,7 @@ export function PosPage() {
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  const anyModalOpen = showPaymentModal || showCustomerModal || showPriceModal || showSearchModal || showReprintModal || showCashCutModal || showDeliveryModal || showAmountModal || showHistoryModal || showCreditPayModal;
+  const anyModalOpen = showPaymentModal || showCustomerModal || showPriceModal || showSearchModal || showReprintModal || showCashCutModal || showDeliveryModal || showAmountModal || showHistoryModal || showCreditPayModal || showAdminAuthModal;
 
   return (
     <div className="flex flex-col h-screen bg-background" onKeyDown={handleKeyDown}>
@@ -1301,6 +1335,33 @@ export function PosPage() {
         </Modal>
       )}
 
+      {/* Admin Auth Modal */}
+      {showAdminAuthModal && (
+        <Modal onClose={() => { setShowAdminAuthModal(false); setAdminPassword(""); focusInput(); }}>
+          <h2 className="text-lg font-bold text-foreground mb-2">Autorización requerida</h2>
+          <p className="text-sm text-muted-foreground mb-4">Ingresa la clave del administrador para continuar</p>
+          {adminAuthError && <p className="text-sm text-destructive mb-3">{adminAuthError}</p>}
+          <input
+            id="admin-auth-input"
+            type="password"
+            placeholder="Clave de administrador"
+            value={adminPassword}
+            onChange={(e) => { setAdminPassword(e.target.value); setAdminAuthError(""); }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleAdminAuth();
+            }}
+            className="w-full px-4 py-3 rounded-md bg-input border border-border text-foreground text-lg focus:outline-none focus:ring-2 focus:ring-ring mb-3"
+            autoFocus
+          />
+          <button
+            onClick={handleAdminAuth}
+            className="w-full py-3 rounded-md bg-primary text-primary-foreground font-bold hover:bg-primary/90 transition-colors"
+          >
+            Autorizar
+          </button>
+        </Modal>
+      )}
+
       {/* History Modal (F8) */}
       {showHistoryModal && (
         <Modal onClose={() => { setShowHistoryModal(false); focusInput(); }}>
@@ -1317,13 +1378,15 @@ export function PosPage() {
                   e.preventDefault();
                   const sale = historySales[historySelectedIndex];
                   if (sale && !sale.cancelled) {
-                    const reason = prompt("Motivo de anulación (Enter para cancelar):");
-                    if (reason) {
-                      api.cancelSale(sale.id, reason).then((r) => {
-                        setSuccess(`✅ Venta #${r.sale_id} anulada.`);
-                        setShowHistoryModal(false); focusInput();
-                      }).catch((err) => setError(String(err)));
-                    }
+                    requireAdminAuth(() => {
+                      const reason = prompt("Motivo de anulación:");
+                      if (reason) {
+                        api.cancelSale(sale.id, reason).then((r) => {
+                          setSuccess(`✅ Venta #${r.sale_id} anulada.`);
+                          setShowHistoryModal(false); focusInput();
+                        }).catch((err) => setError(String(err)));
+                      }
+                    });
                   }
                 }
               }}

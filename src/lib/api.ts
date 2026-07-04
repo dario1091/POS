@@ -22,6 +22,7 @@ export const api = {
   login: (request: LoginRequest) => invoke<User>("login", { request }),
   logout: () => invoke<void>("logout"),
   getCurrentUser: () => invoke<User | null>("get_current_user"),
+  validateAdminPassword: (password: string) => invoke<boolean>("validate_admin_password", { password }),
 
   // Users
   createUser: (user: CreateUser) => invoke<User>("create_user", { user }),
