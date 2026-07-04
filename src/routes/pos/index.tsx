@@ -107,6 +107,9 @@ export function PosPage() {
   const [adminAuthCallback, setAdminAuthCallback] = useState<(() => void) | null>(null);
   const [adminAuthError, setAdminAuthError] = useState("");
 
+  // Help modal (F12)
+  const [showHelpModal, setShowHelpModal] = useState(false);
+
   // Computed
   const subtotal = cart.reduce((sum, item) => sum + item.product.sale_price * item.quantity - item.discount, 0);
   const total = subtotal;
@@ -669,6 +672,13 @@ export function PosPage() {
       return;
     }
 
+    // F12 - Help
+    if (e.key === "F12") {
+      e.preventDefault();
+      setShowHelpModal(true);
+      return;
+    }
+
     // Arrow navigation when input is empty
     if (command === "" && cart.length > 0) {
       if (e.key === "ArrowUp") {
@@ -710,7 +720,7 @@ export function PosPage() {
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  const anyModalOpen = showPaymentModal || showCustomerModal || showPriceModal || showSearchModal || showReprintModal || showCashCutModal || showDeliveryModal || showAmountModal || showHistoryModal || showCreditPayModal || showAdminAuthModal;
+  const anyModalOpen = showPaymentModal || showCustomerModal || showPriceModal || showSearchModal || showReprintModal || showCashCutModal || showDeliveryModal || showAmountModal || showHistoryModal || showCreditPayModal || showAdminAuthModal || showHelpModal;
 
   return (
     <div className="flex flex-col h-screen bg-background" onKeyDown={handleKeyDown}>
@@ -767,6 +777,7 @@ export function PosPage() {
             <KeyBadge key_="F6" label="Devolución" />
             <KeyBadge key_="F8" label="Historial" />
             <KeyBadge key_="F9" label="Reimprimir" />
+            <KeyBadge key_="F12" label="Ayuda" />
             <KeyBadge key_="Ctrl+N" label="Nueva" />
           </div>
           <div className="flex items-center gap-2">
@@ -1331,6 +1342,67 @@ export function PosPage() {
             >
               Registrar entrega e imprimir
             </button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Help Modal (F12) */}
+      {showHelpModal && (
+        <Modal onClose={() => { setShowHelpModal(false); focusInput(); }}>
+          <h2 className="text-lg font-bold text-foreground mb-4">Guía Rápida</h2>
+          <div className="max-h-96 overflow-auto space-y-4 text-sm">
+            <section>
+              <h3 className="font-bold text-primary mb-1">Vender</h3>
+              <div className="space-y-1 text-muted-foreground">
+                <p><span className="text-foreground font-mono">{"{código}"}</span> — Agregar producto (escanear o escribir)</p>
+                <p><span className="text-foreground font-mono">3*{"{código}"}</span> — Agregar 3 unidades</p>
+                <p><span className="text-foreground font-mono">$8500*{"{código}"}</span> — Agregar con precio manual</p>
+              </div>
+            </section>
+            <section>
+              <h3 className="font-bold text-primary mb-1">Cobrar</h3>
+              <div className="space-y-1 text-muted-foreground">
+                <p><span className="text-foreground font-mono">500 + F1</span> — Cobrar $500 en efectivo</p>
+                <p><span className="text-foreground font-mono">F1</span> — Cobrar (abre modal si no hay monto)</p>
+                <p><span className="text-foreground font-mono">500 + F2</span> — Cobrar $500 con tarjeta</p>
+                <p><span className="text-foreground font-mono">F2</span> — Cobrar otro medio (modal)</p>
+              </div>
+            </section>
+            <section>
+              <h3 className="font-bold text-primary mb-1">Teclas de función</h3>
+              <div className="space-y-1 text-muted-foreground">
+                <p><span className="text-foreground font-mono">F3</span> — Eliminar producto seleccionado</p>
+                <p><span className="text-foreground font-mono">F4</span> — Cancelar venta (vaciar carrito)</p>
+                <p><span className="text-foreground font-mono">F5</span> — Buscar/asignar cliente</p>
+                <p><span className="text-foreground font-mono">F6</span> — Modo devolución</p>
+                <p><span className="text-foreground font-mono">F8</span> — Historial de ventas del día</p>
+                <p><span className="text-foreground font-mono">F9</span> — Reimprimir ticket</p>
+                <p><span className="text-foreground font-mono">F12</span> — Esta ayuda</p>
+                <p><span className="text-foreground font-mono">Ctrl+N</span> — Nueva pestaña de venta</p>
+                <p><span className="text-foreground font-mono">Ctrl+1/2/3</span> — Cambiar pestaña</p>
+                <p><span className="text-foreground font-mono">↑↓</span> — Navegar productos en lista</p>
+              </div>
+            </section>
+            <section>
+              <h3 className="font-bold text-primary mb-1">Comandos en el input</h3>
+              <div className="space-y-1 text-muted-foreground">
+                <p><span className="text-foreground font-mono">pv{"{código}"}</span> — Consultar precio</p>
+                <p><span className="text-foreground font-mono">pv%nombre%</span> — Buscar por nombre</p>
+                <p><span className="text-foreground font-mono">CC</span> — Cierre de caja</p>
+                <p><span className="text-foreground font-mono">EP</span> — Entrega parcial de efectivo</p>
+                <p><span className="text-foreground font-mono">AB</span> — Abono a crédito de cliente</p>
+                <p><span className="text-foreground font-mono">AN5</span> — Anular venta #5</p>
+              </div>
+            </section>
+            <section>
+              <h3 className="font-bold text-primary mb-1">Devolución</h3>
+              <div className="space-y-1 text-muted-foreground">
+                <p><span className="text-foreground font-mono">F6</span> — Entrar en modo devolución</p>
+                <p>Escanear productos a devolver</p>
+                <p><span className="text-foreground font-mono">0 + F1</span> — Confirmar devolución</p>
+                <p><span className="text-foreground font-mono">F6</span> — Salir del modo devolución</p>
+              </div>
+            </section>
           </div>
         </Modal>
       )}
