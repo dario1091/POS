@@ -102,14 +102,22 @@ pub async fn install_update(download_url: String) -> Result<String, String> {
 
 #[tauri::command]
 pub fn restart_app(app: tauri::AppHandle) -> Result<(), String> {
-    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-    // Use bash to wait 1 second then relaunch
-    std::process::Command::new("bash")
-        .args(["-c", &format!("sleep 1 && '{}' &", exe.display())])
+    // Try multiple approaches to find and relaunch
+    let exe_path = std::env::current_exe()
+        .map(|p| p.display().to_string())
+        .unwrap_or_else(|_| "pos-system".to_string());
+
+    // Spawn detached process that waits then relaunches
+    std::process::Command::new("sh")
+        .arg("-c")
+        .arg(format!("sleep 1; nohup '{}' > /dev/null 2>&1 &", exe_path))
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
         .spawn()
-        .map_err(|e| format!("Error reiniciando: {}", e))?;
-    app.exit(0);
-    Ok(())
+        .map_err(|e| format!("Error: {}", e))?;
+
+    // Exit current instance
+    std::process::exit(0);
 }
 
 /// Compare semver versions (simple: a > b?)
