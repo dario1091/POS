@@ -1,6 +1,6 @@
 use rusqlite::Connection;
 
-const MIGRATIONS: &[&str] = &[MIGRATION_001, MIGRATION_002, MIGRATION_003, MIGRATION_004, MIGRATION_005, MIGRATION_006, MIGRATION_007];
+const MIGRATIONS: &[&str] = &[MIGRATION_001, MIGRATION_002, MIGRATION_003, MIGRATION_004, MIGRATION_005, MIGRATION_006, MIGRATION_007, MIGRATION_008];
 
 const MIGRATION_001: &str = r#"
 -- Users
@@ -248,6 +248,11 @@ CREATE TABLE IF NOT EXISTS return_items (
 
 CREATE INDEX IF NOT EXISTS idx_returns_created_at ON returns(created_at);
 CREATE INDEX IF NOT EXISTS idx_return_items_return_id ON return_items(return_id);
+"#;
+
+const MIGRATION_008: &str = r#"
+-- Price type for products: fijo (default), bascula (reads weight), monto (asks for amount)
+ALTER TABLE products ADD COLUMN price_type TEXT NOT NULL DEFAULT 'fijo' CHECK(price_type IN ('fijo', 'bascula', 'monto'));
 "#;
 
 pub fn run_migrations(conn: &Connection) -> Result<(), rusqlite::Error> {

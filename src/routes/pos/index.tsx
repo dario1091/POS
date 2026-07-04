@@ -83,6 +83,11 @@ export function PosPage() {
   // Return mode (F6)
   const [returnMode, setReturnMode] = useState(false);
 
+  // Amount input for "monto" type products
+  const [showAmountModal, setShowAmountModal] = useState(false);
+  const [amountProduct, setAmountProduct] = useState<Product | null>(null);
+  const [productAmount, setProductAmount] = useState("");
+
   // Computed
   const subtotal = cart.reduce((sum, item) => sum + item.product.sale_price * item.quantity - item.discount, 0);
   const total = subtotal;
@@ -132,6 +137,25 @@ export function PosPage() {
   const executeCommand = async (cmd: string) => {
     const trimmed = cmd.trim();
     if (!trimmed) return;
+
+    // $monto*código — agregar producto con precio custom (para productos tipo "monto")
+    const amountMatch = trimmed.match(/^\$(\d+(?:\.\d+)?)\*(.+)$/);
+    if (amountMatch) {
+      const amount = parseFloat(amountMatch[1]);
+      const code = amountMatch[2];
+      try {
+        const product = await api.searchProductByCode(code);
+        if (product) {
+          addToCart(product, 1, amount);
+        } else {
+          setError(`Producto no encontrado: ${code}`);
+        }
+      } catch {
+        setError("Error buscando producto");
+      }
+      setCommand("");
+      return;
+    }
 
     // CC — Cierre de caja rápido
     if (trimmed.toUpperCase() === "CC") {
@@ -220,18 +244,31 @@ export function PosPage() {
     }
   };
 
-  const addToCart = (product: Product, quantity: number) => {
-    // Hide change display when new product is added (means new sale started)
+  const addToCart = (product: Product, quantity: number, customPrice?: number) => {
+    // Hide change display when new product is added
     if (changeDisplay.visible) {
       setChangeDisplay({ amount: 0, visible: false });
     }
-    const existing = cart.findIndex((item) => item.product.id === product.id);
+
+    // If product type is "monto" and no custom price provided, ask for it
+    if (product.price_type === "monto" && !customPrice) {
+      setAmountProduct(product);
+      setProductAmount("");
+      setShowAmountModal(true);
+      setTimeout(() => document.getElementById("product-amount-input")?.focus(), 50);
+      return;
+    }
+
+    const price = customPrice ?? product.sale_price;
+    const existing = cart.findIndex((item) => item.product.id === product.id && item.product.sale_price === price);
     if (existing >= 0) {
       const updated = [...cart];
       updated[existing] = { ...updated[existing], quantity: updated[existing].quantity + quantity };
       updateActiveTab({ cart: updated });
     } else {
-      updateActiveTab({ cart: [...cart, { product, quantity, discount: 0 }] });
+      // For custom price products, override sale_price in the cart item
+      const productWithPrice = customPrice ? { ...product, sale_price: price } : product;
+      updateActiveTab({ cart: [...cart, { product: productWithPrice, quantity, discount: 0 }] });
     }
     setSelectedIndex(-1);
   };
@@ -586,7 +623,7 @@ export function PosPage() {
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  const anyModalOpen = showPaymentModal || showCustomerModal || showPriceModal || showSearchModal || showReprintModal || showCashCutModal || showDeliveryModal;
+  const anyModalOpen = showPaymentModal || showCustomerModal || showPriceModal || showSearchModal || showReprintModal || showCashCutModal || showDeliveryModal || showAmountModal;
 
   return (
     <div className="flex flex-col h-screen bg-background" onKeyDown={handleKeyDown}>
@@ -1038,6 +1075,51 @@ export function PosPage() {
           <p className="text-xs text-muted-foreground mt-3">
             {searchResults.length > 0 ? "Click para agregar al carrito" : "Presiona Escape o ✕ para cerrar"}
           </p>
+        </Modal>
+      )}
+
+      {/* Amount Modal (for "monto" type products) */}
+      {showAmountModal && amountProduct && (
+        <Modal onClose={() => { setShowAmountModal(false); setAmountProduct(null); focusInput(); }}>
+          <h2 className="text-lg font-bold text-foreground mb-2">¿Cuánto cuesta?</h2>
+          <p className="text-sm text-muted-foreground mb-4">{amountProduct.name}</p>
+          <input
+            id="product-amount-input"
+            type="number"
+            step="0.01"
+            placeholder="Monto ($)"
+            value={productAmount}
+            onChange={(e) => setProductAmount(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && productAmount) {
+                const amount = parseFloat(productAmount);
+                if (amount > 0) {
+                  addToCart(amountProduct, 1, amount);
+                  setShowAmountModal(false);
+                  setAmountProduct(null);
+                  setProductAmount("");
+                  focusInput();
+                }
+              }
+            }}
+            className="w-full px-4 py-3 rounded-md bg-input border border-border text-foreground text-xl font-mono mb-3 focus:outline-none focus:ring-2 focus:ring-ring"
+            autoFocus
+          />
+          <button
+            onClick={() => {
+              const amount = parseFloat(productAmount);
+              if (amount > 0 && amountProduct) {
+                addToCart(amountProduct, 1, amount);
+                setShowAmountModal(false);
+                setAmountProduct(null);
+                setProductAmount("");
+                focusInput();
+              }
+            }}
+            className="w-full py-3 rounded-md bg-primary text-primary-foreground font-bold hover:bg-primary/90 transition-colors"
+          >
+            Agregar
+          </button>
         </Modal>
       )}
 

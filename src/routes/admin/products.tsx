@@ -24,6 +24,7 @@ export function ProductsPage() {
     stock: 0,
     unit: "pieza",
     min_stock: 0,
+    price_type: "fijo",
   };
 
   const [formData, setFormData] = useState<CreateProduct>(emptyForm);
@@ -90,6 +91,7 @@ export function ProductsPage() {
       stock: product.stock,
       unit: product.unit,
       min_stock: product.min_stock,
+      price_type: product.price_type,
     });
     setShowForm(true);
   };
@@ -221,6 +223,15 @@ export function ProductsPage() {
             >
               <option value="pieza">Pieza</option>
               <option value="kg">Kilogramo</option>
+            </select>
+            <select
+              value={formData.price_type || "fijo"}
+              onChange={(e) => setFormData({ ...formData, price_type: e.target.value as "fijo" | "bascula" | "monto" })}
+              className="px-3 py-2 rounded-md bg-input border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <option value="fijo">Precio fijo</option>
+              <option value="bascula">Necesita báscula</option>
+              <option value="monto">Pide monto (precio variable)</option>
             </select>
             <input
               type="number"

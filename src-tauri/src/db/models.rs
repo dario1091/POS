@@ -32,6 +32,7 @@ pub struct Product {
     pub stock: f64,
     pub unit: String,
     pub min_stock: f64,
+    pub price_type: String,
     pub active: bool,
     pub created_at: String,
     pub updated_at: String,
@@ -120,6 +121,7 @@ pub struct CreateProduct {
     pub stock: f64,
     pub unit: String,
     pub min_stock: f64,
+    pub price_type: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

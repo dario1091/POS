@@ -112,7 +112,7 @@ async fn list_products(
 
     let mut stmt = conn.prepare(
         "SELECT id, barcode, name, description, category_id, sale_price, cost_price, 
-                stock, unit, min_stock, active, created_at, updated_at 
+                stock, unit, min_stock, price_type, active, created_at, updated_at 
          FROM products WHERE active = 1 ORDER BY name"
     ).map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
@@ -122,7 +122,7 @@ async fn list_products(
             description: row.get(3)?, category_id: row.get(4)?,
             sale_price: row.get(5)?, cost_price: row.get(6)?,
             stock: row.get(7)?, unit: row.get(8)?, min_stock: row.get(9)?,
-            active: row.get(10)?, created_at: row.get(11)?, updated_at: row.get(12)?,
+            price_type: row.get(10)?, active: row.get(11)?, created_at: row.get(12)?, updated_at: row.get(13)?,
         })
     }).map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
     .collect::<Result<Vec<_>, _>>()
@@ -142,7 +142,7 @@ async fn search_product_by_code(
 
     let result = conn.query_row(
         "SELECT id, barcode, name, description, category_id, sale_price, cost_price, 
-                stock, unit, min_stock, active, created_at, updated_at 
+                stock, unit, min_stock, price_type, active, created_at, updated_at 
          FROM products WHERE (barcode = ?1 OR id = ?2) AND active = 1 LIMIT 1",
         rusqlite::params![req.code, req.code.parse::<i64>().unwrap_or(-1)],
         |row| Ok(Product {
@@ -150,7 +150,7 @@ async fn search_product_by_code(
             description: row.get(3)?, category_id: row.get(4)?,
             sale_price: row.get(5)?, cost_price: row.get(6)?,
             stock: row.get(7)?, unit: row.get(8)?, min_stock: row.get(9)?,
-            active: row.get(10)?, created_at: row.get(11)?, updated_at: row.get(12)?,
+            price_type: row.get(10)?, active: row.get(11)?, created_at: row.get(12)?, updated_at: row.get(13)?,
         }),
     );
 
@@ -173,7 +173,7 @@ async fn search_products_by_name(
 
     let mut stmt = conn.prepare(
         "SELECT id, barcode, name, description, category_id, sale_price, cost_price, 
-                stock, unit, min_stock, active, created_at, updated_at 
+                stock, unit, min_stock, price_type, active, created_at, updated_at 
          FROM products WHERE name LIKE ?1 AND active = 1 ORDER BY name LIMIT 20"
     ).map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
@@ -183,7 +183,7 @@ async fn search_products_by_name(
             description: row.get(3)?, category_id: row.get(4)?,
             sale_price: row.get(5)?, cost_price: row.get(6)?,
             stock: row.get(7)?, unit: row.get(8)?, min_stock: row.get(9)?,
-            active: row.get(10)?, created_at: row.get(11)?, updated_at: row.get(12)?,
+            price_type: row.get(10)?, active: row.get(11)?, created_at: row.get(12)?, updated_at: row.get(13)?,
         })
     }).map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
     .collect::<Result<Vec<_>, _>>()

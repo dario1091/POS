@@ -9,8 +9,8 @@ pub fn create_product(product: CreateProduct, state: State<'_, AppState>) -> Res
     let conn = state.db.get().map_err(|e| e.to_string())?;
 
     conn.execute(
-        "INSERT INTO products (barcode, name, description, category_id, sale_price, cost_price, stock, unit, min_stock)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        "INSERT INTO products (barcode, name, description, category_id, sale_price, cost_price, stock, unit, min_stock, price_type)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
         params![
             product.barcode,
             product.name,
@@ -21,6 +21,7 @@ pub fn create_product(product: CreateProduct, state: State<'_, AppState>) -> Res
             product.stock,
             product.unit,
             product.min_stock,
+            product.price_type.as_deref().unwrap_or("fijo"),
         ],
     )
     .map_err(|e| format!("Error al crear producto: {}", e))?;
@@ -104,7 +105,7 @@ pub fn list_products(state: State<'_, AppState>) -> Result<Vec<Product>, String>
     let mut stmt = conn
         .prepare(
             "SELECT id, barcode, name, description, category_id, sale_price, cost_price, 
-                    stock, unit, min_stock, active, created_at, updated_at 
+                    stock, unit, min_stock, price_type, active, created_at, updated_at 
              FROM products WHERE active = 1 ORDER BY name",
         )
         .map_err(|e| e.to_string())?;
@@ -125,7 +126,7 @@ pub fn search_product_by_code(code: String, state: State<'_, AppState>) -> Resul
     // Search in product_barcodes table first, then fallback to product ID
     let result = conn.query_row(
         "SELECT p.id, p.barcode, p.name, p.description, p.category_id, p.sale_price, p.cost_price, 
-                p.stock, p.unit, p.min_stock, p.active, p.created_at, p.updated_at 
+                p.stock, p.unit, p.min_stock, p.price_type, p.active, p.created_at, p.updated_at 
          FROM products p
          LEFT JOIN product_barcodes pb ON pb.product_id = p.id
          WHERE (pb.barcode = ?1 OR p.barcode = ?1 OR p.id = ?2) AND p.active = 1
@@ -149,7 +150,7 @@ pub fn search_products_by_name(name: String, state: State<'_, AppState>) -> Resu
     let mut stmt = conn
         .prepare(
             "SELECT id, barcode, name, description, category_id, sale_price, cost_price, 
-                    stock, unit, min_stock, active, created_at, updated_at 
+                    stock, unit, min_stock, price_type, active, created_at, updated_at 
              FROM products WHERE name LIKE ?1 AND active = 1 ORDER BY name LIMIT 20",
         )
         .map_err(|e| e.to_string())?;
@@ -166,7 +167,7 @@ pub fn search_products_by_name(name: String, state: State<'_, AppState>) -> Resu
 fn get_product_by_id(id: i64, conn: &rusqlite::Connection) -> Result<Product, String> {
     conn.query_row(
         "SELECT id, barcode, name, description, category_id, sale_price, cost_price, 
-                stock, unit, min_stock, active, created_at, updated_at 
+                stock, unit, min_stock, price_type, active, created_at, updated_at 
          FROM products WHERE id = ?1",
         params![id],
         |row| row_to_product(row),
@@ -186,9 +187,10 @@ fn row_to_product(row: &rusqlite::Row) -> Result<Product, rusqlite::Error> {
         stock: row.get(7)?,
         unit: row.get(8)?,
         min_stock: row.get(9)?,
-        active: row.get(10)?,
-        created_at: row.get(11)?,
-        updated_at: row.get(12)?,
+        price_type: row.get(10)?,
+        active: row.get(11)?,
+        created_at: row.get(12)?,
+        updated_at: row.get(13)?,
     })
 }
 

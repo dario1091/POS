@@ -28,6 +28,7 @@ export interface Product {
   stock: number;
   unit: "pieza" | "kg";
   min_stock: number;
+  price_type: "fijo" | "bascula" | "monto";
   active: boolean;
   created_at: string;
   updated_at: string;
@@ -97,6 +98,7 @@ export interface CreateProduct {
   stock: number;
   unit: "pieza" | "kg";
   min_stock: number;
+  price_type?: "fijo" | "bascula" | "monto";
 }
 
 export interface UpdateProduct {
