@@ -1,6 +1,6 @@
 use rusqlite::Connection;
 
-const MIGRATIONS: &[&str] = &[MIGRATION_001, MIGRATION_002, MIGRATION_003, MIGRATION_004, MIGRATION_005, MIGRATION_006, MIGRATION_007, MIGRATION_008];
+const MIGRATIONS: &[&str] = &[MIGRATION_001, MIGRATION_002, MIGRATION_003, MIGRATION_004, MIGRATION_005, MIGRATION_006, MIGRATION_007, MIGRATION_008, MIGRATION_009];
 
 const MIGRATION_001: &str = r#"
 -- Users
@@ -253,6 +253,25 @@ CREATE INDEX IF NOT EXISTS idx_return_items_return_id ON return_items(return_id)
 const MIGRATION_008: &str = r#"
 -- Price type for products: fijo (default), bascula (reads weight), monto (asks for amount)
 ALTER TABLE products ADD COLUMN price_type TEXT NOT NULL DEFAULT 'fijo' CHECK(price_type IN ('fijo', 'bascula', 'monto'));
+"#;
+
+const MIGRATION_009: &str = r#"
+-- Categorías predefinidas para supermercado
+INSERT OR IGNORE INTO categories (name, description) VALUES ('Víveres', 'Arroz, aceite, granos, enlatados');
+INSERT OR IGNORE INTO categories (name, description) VALUES ('Bebidas', 'Gaseosas, jugos, agua, energizantes');
+INSERT OR IGNORE INTO categories (name, description) VALUES ('Snacks', 'Papas, galletas, dulces, mecato');
+INSERT OR IGNORE INTO categories (name, description) VALUES ('Lácteos', 'Leche, queso, yogurt, mantequilla');
+INSERT OR IGNORE INTO categories (name, description) VALUES ('Frutas y Verduras', 'Productos frescos');
+INSERT OR IGNORE INTO categories (name, description) VALUES ('Carnes y Embutidos', 'Pollo, res, cerdo, jamón, salchichas');
+INSERT OR IGNORE INTO categories (name, description) VALUES ('Panadería', 'Pan, tortas, ponqués');
+INSERT OR IGNORE INTO categories (name, description) VALUES ('Aseo Personal', 'Jabón, shampoo, desodorante, crema dental');
+INSERT OR IGNORE INTO categories (name, description) VALUES ('Limpieza del Hogar', 'Detergente, desinfectante, escobas');
+INSERT OR IGNORE INTO categories (name, description) VALUES ('Medicamentos', 'Pastillas, jarabes, primeros auxilios');
+INSERT OR IGNORE INTO categories (name, description) VALUES ('Papelería', 'Cuadernos, lápices, bolígrafos');
+INSERT OR IGNORE INTO categories (name, description) VALUES ('Mascotas', 'Concentrado, arena, accesorios');
+INSERT OR IGNORE INTO categories (name, description) VALUES ('Licores', 'Cerveza, aguardiente, vino, whisky');
+INSERT OR IGNORE INTO categories (name, description) VALUES ('Congelados', 'Helados, verduras congeladas, pizzas');
+INSERT OR IGNORE INTO categories (name, description) VALUES ('Condimentos y Salsas', 'Sal, pimienta, salsa de tomate, mayonesa');
 "#;
 
 pub fn run_migrations(conn: &Connection) -> Result<(), rusqlite::Error> {
