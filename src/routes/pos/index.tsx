@@ -744,7 +744,7 @@ export function PosPage() {
             <tbody>
               {cart.map((item, index) => (
                 <tr
-                  key={item.product.id}
+                  key={`${item.product.id}-${item.product.sale_price}-${index}`}
                   className={`border-b border-border transition-colors ${
                     index === selectedIndex
                       ? "bg-primary/20 border-l-4 border-l-primary"

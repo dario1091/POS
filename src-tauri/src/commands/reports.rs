@@ -277,34 +277,41 @@ pub fn create_cash_cut(actual_cash: f64, notes: Option<String>, state: State<'_,
     let user = current_user.as_ref().ok_or("No hay sesión activa")?;
     let user_id = user.id;
 
-    // Calculate expected cash
-    let summary = get_cash_cut_summary_internal(&conn)?;
-    let expected_cash = summary.cash_sales;
-    let difference = actual_cash - expected_cash;
+    conn.execute("BEGIN TRANSACTION", []).map_err(|e| e.to_string())?;
 
-    conn.execute(
-        "INSERT INTO cash_cuts (user_id, expected_cash, actual_cash, difference, notes) VALUES (?1, ?2, ?3, ?4, ?5)",
-        params![user_id, expected_cash, actual_cash, difference, notes],
-    )
-    .map_err(|e| e.to_string())?;
+    let result = (|| -> Result<CashCut, String> {
+        // Calculate expected cash INSIDE the transaction
+        let summary = get_cash_cut_summary_internal(&conn)?;
+        let expected_cash = summary.cash_sales;
+        let difference = actual_cash - expected_cash;
 
-    let id = conn.last_insert_rowid();
-    conn.query_row(
-        "SELECT id, user_id, expected_cash, actual_cash, difference, notes, created_at FROM cash_cuts WHERE id = ?1",
-        params![id],
-        |row| {
-            Ok(CashCut {
-                id: row.get(0)?,
-                user_id: row.get(1)?,
-                expected_cash: row.get(2)?,
-                actual_cash: row.get(3)?,
-                difference: row.get(4)?,
-                notes: row.get(5)?,
-                created_at: row.get(6)?,
-            })
-        },
-    )
-    .map_err(|e| e.to_string())
+        conn.execute(
+            "INSERT INTO cash_cuts (user_id, expected_cash, actual_cash, difference, notes) VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![user_id, expected_cash, actual_cash, difference, notes],
+        ).map_err(|e| e.to_string())?;
+
+        let id = conn.last_insert_rowid();
+        conn.query_row(
+            "SELECT id, user_id, expected_cash, actual_cash, difference, notes, created_at FROM cash_cuts WHERE id = ?1",
+            params![id],
+            |row| {
+                Ok(CashCut {
+                    id: row.get(0)?,
+                    user_id: row.get(1)?,
+                    expected_cash: row.get(2)?,
+                    actual_cash: row.get(3)?,
+                    difference: row.get(4)?,
+                    notes: row.get(5)?,
+                    created_at: row.get(6)?,
+                })
+            },
+        ).map_err(|e| e.to_string())
+    })();
+
+    match result {
+        Ok(cut) => { conn.execute("COMMIT", []).ok(); Ok(cut) }
+        Err(e) => { conn.execute("ROLLBACK", []).ok(); Err(e) }
+    }
 }
 
 #[tauri::command]

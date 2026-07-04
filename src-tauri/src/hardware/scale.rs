@@ -26,14 +26,14 @@ impl ScaleState {
     }
 
     pub fn configure(&self, port: &str, baud: u32) {
-        *self.port_name.lock().unwrap() = port.to_string();
-        *self.baud_rate.lock().unwrap() = baud;
+        *self.port_name.lock().unwrap_or_else(|e| e.into_inner()) = port.to_string();
+        *self.baud_rate.lock().unwrap_or_else(|e| e.into_inner()) = baud;
     }
 
     /// Start reading from serial port in a background thread
     pub fn start(&self) -> Result<(), String> {
-        let port_name = self.port_name.lock().unwrap().clone();
-        let baud_rate = *self.baud_rate.lock().unwrap();
+        let port_name = self.port_name.lock().unwrap_or_else(|e| e.into_inner()).clone();
+        let baud_rate = *self.baud_rate.lock().unwrap_or_else(|e| e.into_inner());
 
         if port_name.is_empty() {
             return Err("Puerto serial no configurado".to_string());

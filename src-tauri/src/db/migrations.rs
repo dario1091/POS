@@ -287,16 +287,25 @@ pub fn run_migrations(conn: &Connection) -> Result<(), rusqlite::Error> {
     let applied_count: i64 =
         conn.query_row("SELECT COUNT(*) FROM _migrations", [], |row| row.get(0))?;
 
-    // Run pending migrations
+    // Run pending migrations (each in its own transaction)
     for (i, migration) in MIGRATIONS.iter().enumerate() {
         let migration_id = (i + 1) as i64;
         if migration_id > applied_count {
-            conn.execute_batch(migration)?;
-            conn.execute(
-                "INSERT INTO _migrations (id) VALUES (?1)",
-                rusqlite::params![migration_id],
-            )?;
-            println!("Applied migration {}", migration_id);
+            conn.execute_batch("BEGIN TRANSACTION;")?;
+            match conn.execute_batch(migration) {
+                Ok(_) => {
+                    conn.execute(
+                        "INSERT INTO _migrations (id) VALUES (?1)",
+                        rusqlite::params![migration_id],
+                    )?;
+                    conn.execute_batch("COMMIT;")?;
+                    println!("Applied migration {}", migration_id);
+                }
+                Err(e) => {
+                    let _ = conn.execute_batch("ROLLBACK;");
+                    return Err(e);
+                }
+            }
         }
     }
 
