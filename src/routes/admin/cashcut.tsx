@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
+import { getLocalDate } from "@/lib/utils";
 
 export function CashCutPage() {
-  const today = new Date().toISOString().split("T")[0];
+  const today = getLocalDate();
   const [summary, setSummary] = useState<{
     total_sales: number; cash_sales: number; card_sales: number;
     transfer_sales: number; transactions: number; last_cut_date: string | null;

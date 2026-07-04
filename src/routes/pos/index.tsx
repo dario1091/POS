@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { api } from "@/lib/api";
+import { getLocalDate } from "@/lib/utils";
 import type { Product, Customer, CartItem } from "@/lib/types";
 
 interface SaleTab {
@@ -573,7 +574,7 @@ export function PosPage() {
     // F9 - Reprint ticket
     if (e.key === "F9") {
       e.preventDefault();
-      const today = new Date().toISOString().split("T")[0];
+      const today = getLocalDate();
       api.getDailySales(today).then((sales) => {
         setReprintSales(sales.map((s) => ({ id: s.id, total: s.total, created_at: s.created_at, payment_method: s.payment_method })));
         setReprintSelectedIndex(0);

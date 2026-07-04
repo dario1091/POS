@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
+import { getLocalDate } from "@/lib/utils";
 import type { Sale } from "@/lib/types";
 
 export function DashboardPage() {
-  const today = new Date().toISOString().split("T")[0];
+  const today = getLocalDate();
   const [date, setDate] = useState(today);
   const [summary, setSummary] = useState<{
     total_sales: number; total_transactions: number; total_cash: number;

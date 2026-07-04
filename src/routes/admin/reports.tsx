@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { api } from "@/lib/api";
+import { getLocalDate } from "@/lib/utils";
 
 export function ReportsPage() {
-  const today = new Date().toISOString().split("T")[0];
-  const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0];
+  const today = getLocalDate();
+  const weekAgo = getLocalDate(-7);
 
   const [from, setFrom] = useState(weekAgo);
   const [to, setTo] = useState(today);
