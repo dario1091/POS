@@ -1,6 +1,6 @@
 use rusqlite::Connection;
 
-const MIGRATIONS: &[&str] = &[MIGRATION_001, MIGRATION_002, MIGRATION_003, MIGRATION_004, MIGRATION_005, MIGRATION_006, MIGRATION_007, MIGRATION_008, MIGRATION_009];
+const MIGRATIONS: &[&str] = &[MIGRATION_001, MIGRATION_002, MIGRATION_003, MIGRATION_004, MIGRATION_005, MIGRATION_006, MIGRATION_007, MIGRATION_008, MIGRATION_009, MIGRATION_010];
 
 const MIGRATION_001: &str = r#"
 -- Users
@@ -272,6 +272,29 @@ INSERT OR IGNORE INTO categories (name, description) VALUES ('Mascotas', 'Concen
 INSERT OR IGNORE INTO categories (name, description) VALUES ('Licores', 'Cerveza, aguardiente, vino, whisky');
 INSERT OR IGNORE INTO categories (name, description) VALUES ('Congelados', 'Helados, verduras congeladas, pizzas');
 INSERT OR IGNORE INTO categories (name, description) VALUES ('Condimentos y Salsas', 'Sal, pimienta, salsa de tomate, mayonesa');
+"#;
+
+const MIGRATION_010: &str = r#"
+-- Credit payments (abonos a crédito)
+CREATE TABLE IF NOT EXISTS credit_payments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_id INTEGER NOT NULL REFERENCES customers(id),
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    amount REAL NOT NULL,
+    payment_method TEXT NOT NULL CHECK(payment_method IN ('efectivo', 'tarjeta', 'transferencia')),
+    reference TEXT,
+    notes TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_credit_payments_customer ON credit_payments(customer_id);
+CREATE INDEX IF NOT EXISTS idx_credit_payments_created ON credit_payments(created_at);
+
+-- Sale cancellations (anulaciones)
+ALTER TABLE sales ADD COLUMN cancelled INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE sales ADD COLUMN cancelled_at TEXT;
+ALTER TABLE sales ADD COLUMN cancelled_by INTEGER;
+ALTER TABLE sales ADD COLUMN cancel_reason TEXT;
 "#;
 
 pub fn run_migrations(conn: &Connection) -> Result<(), rusqlite::Error> {

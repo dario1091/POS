@@ -133,6 +133,18 @@ export const api = {
   createReturn: (items: { product_id: number; product_name: string; quantity: number; unit_price: number }[], reason: string | null) =>
     invoke<{ id: number; total: number; items_count: number; created_at: string }>("create_return", { items, reason }),
 
+  // Credit payments (abonos)
+  createCreditPayment: (customerId: number, amount: number, paymentMethod: string, reference: string | null) =>
+    invoke<{ id: number; customer_name: string; amount: number; new_balance: number; created_at: string }>("create_credit_payment", { customerId, amount, paymentMethod, reference }),
+
+  // Cancel sale
+  cancelSale: (saleId: number, reason: string) =>
+    invoke<{ sale_id: number; total_restored: number; items_restored: number }>("cancel_sale", { saleId, reason }),
+
+  // Recent sales (cashier history)
+  getRecentSales: (limit: number) =>
+    invoke<{ id: number; total: number; payment_method: string; items_count: number; cancelled: boolean; created_at: string }[]>("get_recent_sales", { limit }),
+
   // Updater
   checkForUpdates: () => invoke<{ current_version: string; latest_version: string; has_update: boolean; download_url: string | null }>("check_for_updates"),
   installUpdate: (downloadUrl: string) => invoke<string>("install_update", { downloadUrl }),

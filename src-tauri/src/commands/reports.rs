@@ -601,3 +601,191 @@ pub fn create_return(items: Vec<ReturnItemInput>, reason: Option<String>, state:
         Err(e) => { conn.execute("ROLLBACK", []).ok(); Err(e) }
     }
 }
+
+// --- Credit payments (abonos) ---
+
+#[derive(Debug, Serialize)]
+pub struct CreditPaymentResult {
+    pub id: i64,
+    pub customer_name: String,
+    pub amount: f64,
+    pub new_balance: f64,
+    pub created_at: String,
+}
+
+#[tauri::command]
+pub fn create_credit_payment(
+    customer_id: i64,
+    amount: f64,
+    payment_method: String,
+    reference: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<CreditPaymentResult, String> {
+    let conn = state.db.get().map_err(|e| e.to_string())?;
+
+    let current_user = state.current_user.lock().map_err(|e| e.to_string())?;
+    let user = current_user.as_ref().ok_or("No hay sesión activa")?;
+    let user_id = user.id;
+
+    if amount <= 0.0 {
+        return Err("El monto debe ser mayor a 0".to_string());
+    }
+
+    conn.execute("BEGIN TRANSACTION", []).map_err(|e| e.to_string())?;
+
+    let result = (|| -> Result<CreditPaymentResult, String> {
+        // Get customer info
+        let (customer_name, credit_balance): (String, f64) = conn.query_row(
+            "SELECT name, credit_balance FROM customers WHERE id = ?1",
+            params![customer_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        ).map_err(|_| "Cliente no encontrado".to_string())?;
+
+        if amount > credit_balance + 0.01 {
+            return Err(format!("El abono (${:.2}) es mayor a la deuda (${:.2})", amount, credit_balance));
+        }
+
+        // Register payment
+        conn.execute(
+            "INSERT INTO credit_payments (customer_id, user_id, amount, payment_method, reference) VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![customer_id, user_id, amount, payment_method, reference],
+        ).map_err(|e| e.to_string())?;
+
+        let id = conn.last_insert_rowid();
+
+        // Reduce balance
+        conn.execute(
+            "UPDATE customers SET credit_balance = credit_balance - ?1, updated_at = datetime('now', 'localtime') WHERE id = ?2",
+            params![amount, customer_id],
+        ).map_err(|e| e.to_string())?;
+
+        let new_balance = credit_balance - amount;
+
+        let created_at: String = conn.query_row(
+            "SELECT created_at FROM credit_payments WHERE id = ?1", params![id], |row| row.get(0)
+        ).map_err(|e| e.to_string())?;
+
+        Ok(CreditPaymentResult { id, customer_name, amount, new_balance, created_at })
+    })();
+
+    match result {
+        Ok(r) => { conn.execute("COMMIT", []).ok(); Ok(r) }
+        Err(e) => { conn.execute("ROLLBACK", []).ok(); Err(e) }
+    }
+}
+
+// --- Cancel sale (anular venta) ---
+
+#[derive(Debug, Serialize)]
+pub struct CancelSaleResult {
+    pub sale_id: i64,
+    pub total_restored: f64,
+    pub items_restored: i64,
+}
+
+#[tauri::command]
+pub fn cancel_sale(sale_id: i64, reason: String, state: State<'_, AppState>) -> Result<CancelSaleResult, String> {
+    let conn = state.db.get().map_err(|e| e.to_string())?;
+
+    let current_user = state.current_user.lock().map_err(|e| e.to_string())?;
+    let user = current_user.as_ref().ok_or("No hay sesión activa")?;
+    let user_id = user.id;
+
+    // Check sale exists and is not already cancelled
+    let (total, cancelled, payment_method, customer_id): (f64, i64, String, Option<i64>) = conn.query_row(
+        "SELECT total, cancelled, payment_method, customer_id FROM sales WHERE id = ?1",
+        params![sale_id],
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+    ).map_err(|_| "Venta no encontrada".to_string())?;
+
+    if cancelled != 0 {
+        return Err("Esta venta ya fue anulada".to_string());
+    }
+
+    conn.execute("BEGIN TRANSACTION", []).map_err(|e| e.to_string())?;
+
+    let result = (|| -> Result<CancelSaleResult, String> {
+        // Mark as cancelled
+        conn.execute(
+            "UPDATE sales SET cancelled = 1, cancelled_at = datetime('now', 'localtime'), cancelled_by = ?1, cancel_reason = ?2 WHERE id = ?3",
+            params![user_id, reason, sale_id],
+        ).map_err(|e| e.to_string())?;
+
+        // Restore stock for each item
+        let mut stmt = conn.prepare(
+            "SELECT product_id, quantity FROM sale_items WHERE sale_id = ?1"
+        ).map_err(|e| e.to_string())?;
+
+        let items: Vec<(i64, f64)> = stmt.query_map(params![sale_id], |row| {
+            Ok((row.get(0)?, row.get(1)?))
+        }).map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+        let items_count = items.len() as i64;
+
+        for (product_id, quantity) in &items {
+            conn.execute(
+                "UPDATE products SET stock = stock + ?1, updated_at = datetime('now', 'localtime') WHERE id = ?2",
+                params![quantity, product_id],
+            ).map_err(|e| e.to_string())?;
+        }
+
+        // If it was a credit sale, restore the customer's credit balance
+        if payment_method == "credito" {
+            if let Some(cid) = customer_id {
+                conn.execute(
+                    "UPDATE customers SET credit_balance = credit_balance - ?1, updated_at = datetime('now', 'localtime') WHERE id = ?2",
+                    params![total, cid],
+                ).map_err(|e| e.to_string())?;
+            }
+        }
+
+        Ok(CancelSaleResult { sale_id, total_restored: total, items_restored: items_count })
+    })();
+
+    match result {
+        Ok(r) => { conn.execute("COMMIT", []).ok(); Ok(r) }
+        Err(e) => { conn.execute("ROLLBACK", []).ok(); Err(e) }
+    }
+}
+
+// --- Quick history for cashier ---
+
+#[derive(Debug, Serialize)]
+pub struct SaleHistoryItem {
+    pub id: i64,
+    pub total: f64,
+    pub payment_method: String,
+    pub items_count: i64,
+    pub cancelled: bool,
+    pub created_at: String,
+}
+
+#[tauri::command]
+pub fn get_recent_sales(limit: i64, state: State<'_, AppState>) -> Result<Vec<SaleHistoryItem>, String> {
+    let conn = state.db.get().map_err(|e| e.to_string())?;
+
+    let mut stmt = conn.prepare(
+        "SELECT s.id, s.total, s.payment_method, s.cancelled, s.created_at,
+                (SELECT COUNT(*) FROM sale_items WHERE sale_id = s.id) as items_count
+         FROM sales s
+         WHERE date(s.created_at) = date('now', 'localtime')
+         ORDER BY s.created_at DESC LIMIT ?1"
+    ).map_err(|e| e.to_string())?;
+
+    let sales = stmt.query_map(params![limit], |row| {
+        Ok(SaleHistoryItem {
+            id: row.get(0)?,
+            total: row.get(1)?,
+            payment_method: row.get(2)?,
+            cancelled: row.get::<_, i64>(3)? != 0,
+            created_at: row.get(4)?,
+            items_count: row.get(5)?,
+        })
+    }).map_err(|e| e.to_string())?
+    .collect::<Result<Vec<_>, _>>()
+    .map_err(|e| e.to_string())?;
+
+    Ok(sales)
+}

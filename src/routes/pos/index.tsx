@@ -89,6 +89,18 @@ export function PosPage() {
   const [amountProduct, setAmountProduct] = useState<Product | null>(null);
   const [productAmount, setProductAmount] = useState("");
 
+  // History modal (F8)
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [historySales, setHistorySales] = useState<{ id: number; total: number; payment_method: string; items_count: number; cancelled: boolean; created_at: string }[]>([]);
+  const [historySelectedIndex, setHistorySelectedIndex] = useState(0);
+
+  // Credit payment modal (AB command)
+  const [showCreditPayModal, setShowCreditPayModal] = useState(false);
+  const [creditPayCustomer, setCreditPayCustomer] = useState<Customer | null>(null);
+  const [creditPayAmount, setCreditPayAmount] = useState("");
+  const [creditPaySearch, setCreditPaySearch] = useState("");
+  const [creditPayResults, setCreditPayResults] = useState<Customer[]>([]);
+
   // Computed
   const subtotal = cart.reduce((sum, item) => sum + item.product.sale_price * item.quantity - item.discount, 0);
   const total = subtotal;
@@ -167,6 +179,35 @@ export function PosPage() {
         setShowCashCutModal(true);
       } catch (err) {
         setError(String(err));
+      }
+      return;
+    }
+
+    // AB — Abono a crédito
+    if (trimmed.toUpperCase() === "AB") {
+      setCommand("");
+      setShowCreditPayModal(true);
+      setCreditPayCustomer(null);
+      setCreditPayAmount("");
+      setCreditPaySearch("");
+      setCreditPayResults([]);
+      setTimeout(() => document.getElementById("credit-pay-search")?.focus(), 50);
+      return;
+    }
+
+    // AN{id} — Anular venta
+    const anMatch = trimmed.match(/^an(\d+)$/i);
+    if (anMatch) {
+      const saleId = parseInt(anMatch[1]);
+      setCommand("");
+      const reason = prompt("Motivo de la anulación:");
+      if (reason) {
+        try {
+          const result = await api.cancelSale(saleId, reason);
+          setSuccess(`✅ Venta #${result.sale_id} anulada. Stock restaurado (${result.items_restored} items). Total: $${result.total_restored.toFixed(2)}`);
+        } catch (err) {
+          setError(String(err));
+        }
       }
       return;
     }
@@ -571,6 +612,17 @@ export function PosPage() {
       return;
     }
 
+    // F8 - Quick history
+    if (e.key === "F8") {
+      e.preventDefault();
+      api.getRecentSales(20).then((sales) => {
+        setHistorySales(sales);
+        setHistorySelectedIndex(0);
+        setShowHistoryModal(true);
+      }).catch(() => setError("Error cargando historial"));
+      return;
+    }
+
     // F9 - Reprint ticket
     if (e.key === "F9") {
       e.preventDefault();
@@ -624,7 +676,7 @@ export function PosPage() {
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  const anyModalOpen = showPaymentModal || showCustomerModal || showPriceModal || showSearchModal || showReprintModal || showCashCutModal || showDeliveryModal || showAmountModal;
+  const anyModalOpen = showPaymentModal || showCustomerModal || showPriceModal || showSearchModal || showReprintModal || showCashCutModal || showDeliveryModal || showAmountModal || showHistoryModal || showCreditPayModal;
 
   return (
     <div className="flex flex-col h-screen bg-background" onKeyDown={handleKeyDown}>
@@ -679,6 +731,7 @@ export function PosPage() {
             <KeyBadge key_="F4" label="Cancelar" />
             <KeyBadge key_="F5" label="Cliente" />
             <KeyBadge key_="F6" label="Devolución" />
+            <KeyBadge key_="F8" label="Historial" />
             <KeyBadge key_="F9" label="Reimprimir" />
             <KeyBadge key_="Ctrl+N" label="Nueva" />
           </div>
@@ -1245,6 +1298,147 @@ export function PosPage() {
               Registrar entrega e imprimir
             </button>
           </div>
+        </Modal>
+      )}
+
+      {/* History Modal (F8) */}
+      {showHistoryModal && (
+        <Modal onClose={() => { setShowHistoryModal(false); focusInput(); }}>
+          <h2 className="text-lg font-bold text-foreground mb-4">Ventas de Hoy</h2>
+          {historySales.length === 0 ? (
+            <p className="text-muted-foreground">No hay ventas hoy</p>
+          ) : (
+            <div
+              className="max-h-72 overflow-auto space-y-1"
+              onKeyDown={(e) => {
+                if (e.key === "ArrowUp") { e.preventDefault(); setHistorySelectedIndex((p) => (p <= 0 ? historySales.length - 1 : p - 1)); }
+                else if (e.key === "ArrowDown") { e.preventDefault(); setHistorySelectedIndex((p) => (p >= historySales.length - 1 ? 0 : p + 1)); }
+                else if (e.key === "Enter") {
+                  e.preventDefault();
+                  const sale = historySales[historySelectedIndex];
+                  if (sale && !sale.cancelled) {
+                    const reason = prompt("Motivo de anulación (Enter para cancelar):");
+                    if (reason) {
+                      api.cancelSale(sale.id, reason).then((r) => {
+                        setSuccess(`✅ Venta #${r.sale_id} anulada.`);
+                        setShowHistoryModal(false); focusInput();
+                      }).catch((err) => setError(String(err)));
+                    }
+                  }
+                }
+              }}
+              tabIndex={0}
+              ref={(el) => el?.focus()}
+            >
+              {historySales.map((sale, i) => (
+                <div
+                  key={sale.id}
+                  className={`flex items-center justify-between px-3 py-2 rounded-md transition-colors ${
+                    i === historySelectedIndex ? "bg-primary/20 border border-primary" : "hover:bg-accent"
+                  } ${sale.cancelled ? "opacity-50 line-through" : ""}`}
+                >
+                  <div>
+                    <span className="text-sm font-medium text-foreground">#{sale.id}</span>
+                    <span className="text-xs text-muted-foreground ml-2">{sale.created_at.split(" ")[1] || sale.created_at}</span>
+                    <span className="text-xs text-muted-foreground ml-2">({sale.items_count} items)</span>
+                    {sale.cancelled && <span className="text-xs text-destructive ml-2">ANULADA</span>}
+                  </div>
+                  <div className="text-right">
+                    <span className="text-sm font-bold font-mono text-foreground">${sale.total.toFixed(2)}</span>
+                    <span className={`text-xs ml-2 ${
+                      sale.payment_method === "efectivo" ? "text-success" :
+                      sale.payment_method === "credito" ? "text-destructive" : "text-primary"
+                    }`}>{sale.payment_method}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground mt-3">↑↓ navegar | Enter para anular | Escape cerrar</p>
+        </Modal>
+      )}
+
+      {/* Credit Payment Modal (AB command) */}
+      {showCreditPayModal && (
+        <Modal onClose={() => { setShowCreditPayModal(false); focusInput(); }}>
+          <h2 className="text-lg font-bold text-foreground mb-4">Abono a Crédito</h2>
+          {!creditPayCustomer ? (
+            <div>
+              <input
+                id="credit-pay-search"
+                type="text"
+                placeholder="Buscar cliente por nombre o teléfono..."
+                value={creditPaySearch}
+                onChange={(e) => {
+                  setCreditPaySearch(e.target.value);
+                  if (e.target.value.length >= 2) {
+                    api.searchCustomers(e.target.value).then(setCreditPayResults).catch(() => {});
+                  } else {
+                    setCreditPayResults([]);
+                  }
+                }}
+                className="w-full px-3 py-2 rounded-md bg-input border border-border text-foreground text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-ring"
+                autoFocus
+              />
+              <div className="max-h-40 overflow-auto space-y-1">
+                {creditPayResults.filter(c => c.credit_balance > 0).map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => setCreditPayCustomer(c)}
+                    className="w-full text-left px-3 py-2 rounded-md hover:bg-accent text-sm transition-colors flex justify-between"
+                  >
+                    <span className="text-foreground">{c.name}</span>
+                    <span className="text-warning font-mono">Deuda: ${c.credit_balance.toFixed(2)}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="p-3 rounded-md bg-secondary/50">
+                <p className="text-sm text-foreground font-medium">{creditPayCustomer.name}</p>
+                <p className="text-lg font-bold text-warning font-mono">Deuda: ${creditPayCustomer.credit_balance.toFixed(2)}</p>
+              </div>
+              <input
+                type="number"
+                step="0.01"
+                placeholder="Monto del abono"
+                value={creditPayAmount}
+                onChange={(e) => setCreditPayAmount(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && creditPayAmount) {
+                    api.createCreditPayment(creditPayCustomer.id, parseFloat(creditPayAmount), "efectivo", null)
+                      .then((r) => {
+                        setSuccess(`✅ Abono de $${r.amount.toFixed(2)} registrado. Nueva deuda: $${r.new_balance.toFixed(2)}`);
+                        setShowCreditPayModal(false); focusInput();
+                      }).catch((err) => setError(String(err)));
+                  }
+                }}
+                className="w-full px-4 py-3 rounded-md bg-input border border-border text-foreground text-xl font-mono focus:outline-none focus:ring-2 focus:ring-ring"
+                autoFocus
+              />
+              <button
+                onClick={() => {
+                  if (creditPayAmount && creditPayCustomer) {
+                    api.createCreditPayment(creditPayCustomer.id, parseFloat(creditPayAmount), "efectivo", null)
+                      .then((r) => {
+                        setSuccess(`✅ Abono de $${r.amount.toFixed(2)} registrado. Nueva deuda: $${r.new_balance.toFixed(2)}`);
+                        setShowCreditPayModal(false); focusInput();
+                      }).catch((err) => setError(String(err)));
+                  }
+                }}
+                className="w-full py-3 rounded-md bg-success text-white font-bold hover:bg-success/90 transition-colors"
+              >
+                Registrar abono
+              </button>
+              <button
+                onClick={() => setCreditPayCustomer(null)}
+                className="w-full py-2 rounded-md text-sm text-muted-foreground hover:bg-accent transition-colors"
+              >
+                ← Buscar otro cliente
+              </button>
+            </div>
+          )}
         </Modal>
       )}
 
