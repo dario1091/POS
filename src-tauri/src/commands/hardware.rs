@@ -216,6 +216,41 @@ pub fn list_serial_ports() -> Result<Vec<String>, String> {
 }
 
 #[tauri::command]
+pub fn list_printers() -> Result<Vec<String>, String> {
+    let mut printers = Vec::new();
+
+    // Check /dev/usb/lp* devices
+    if let Ok(entries) = std::fs::read_dir("/dev/usb") {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                if name.starts_with("lp") {
+                    printers.push(path.to_string_lossy().to_string());
+                }
+            }
+        }
+    }
+
+    // Also check /dev/lp* (some systems)
+    for i in 0..4 {
+        let path = format!("/dev/lp{}", i);
+        if std::path::Path::new(&path).exists() {
+            printers.push(path);
+        }
+    }
+
+    // Check common thermal printer paths
+    let common = ["/dev/ttyUSB0", "/dev/ttyUSB1", "/dev/ttyACM0"];
+    for path in &common {
+        if std::path::Path::new(path).exists() && !printers.contains(&path.to_string()) {
+            printers.push(path.to_string());
+        }
+    }
+
+    Ok(printers)
+}
+
+#[tauri::command]
 pub fn print_delivery_receipt(
     amount: f64,
     supervisor_name: String,

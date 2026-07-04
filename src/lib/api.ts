@@ -79,6 +79,7 @@ export const api = {
   configureBusiness: (name: string, address: string | null) => invoke<void>("configure_business", { name, address }),
   getHardwareConfig: () => invoke<Record<string, string>>("get_hardware_config"),
   listSerialPorts: () => invoke<string[]>("list_serial_ports"),
+  listPrinters: () => invoke<string[]>("list_printers"),
 
   // Network
   getNetworkConfig: () => invoke<{ role: string; port: number; server_ip: string | null }>("get_network_config"),

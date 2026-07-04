@@ -3,6 +3,7 @@ import { api } from "@/lib/api";
 
 export function HardwarePage() {
   const [serialPorts, setSerialPorts] = useState<string[]>([]);
+  const [printers, setPrinters] = useState<string[]>([]);
   const [printerPath, setPrinterPath] = useState("");
   const [scalePort, setScalePort] = useState("");
   const [scaleBaud, setScaleBaud] = useState("9600");
@@ -14,6 +15,7 @@ export function HardwarePage() {
   useEffect(() => {
     loadConfig();
     loadPorts();
+    loadPrinters();
   }, []);
 
   useEffect(() => {
@@ -42,6 +44,15 @@ export function HardwarePage() {
       setSerialPorts(ports);
     } catch {
       setSerialPorts([]);
+    }
+  };
+
+  const loadPrinters = async () => {
+    try {
+      const devices = await api.listPrinters();
+      setPrinters(devices);
+    } catch {
+      setPrinters([]);
     }
   };
 
@@ -143,15 +154,34 @@ export function HardwarePage() {
         <h2 className="text-lg font-semibold text-foreground mb-3">Impresora Térmica</h2>
         <div className="space-y-3">
           <div>
-            <label className="text-sm text-muted-foreground block mb-1">
-              Dispositivo (ej: /dev/usb/lp0)
-            </label>
+            <label className="text-sm text-muted-foreground block mb-1">Dispositivo</label>
+            <div className="flex gap-2">
+              <select
+                value={printerPath}
+                onChange={(e) => setPrinterPath(e.target.value)}
+                className="flex-1 px-3 py-2 rounded-md bg-input border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="">Seleccionar impresora</option>
+                {printers.map((p) => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+              <button
+                onClick={loadPrinters}
+                className="px-3 py-2 rounded-md bg-secondary text-secondary-foreground text-xs hover:bg-secondary/80 transition-colors"
+              >
+                Refrescar
+              </button>
+            </div>
+            {printers.length === 0 && (
+              <p className="text-xs text-muted-foreground mt-1">No se detectaron impresoras. Verifica que esté conectada por USB.</p>
+            )}
             <input
               type="text"
               value={printerPath}
               onChange={(e) => setPrinterPath(e.target.value)}
-              placeholder="/dev/usb/lp0"
-              className="w-full px-3 py-2 rounded-md bg-input border border-border text-foreground text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring"
+              placeholder="O escribe la ruta manualmente: /dev/usb/lp0"
+              className="w-full mt-2 px-3 py-2 rounded-md bg-input border border-border text-foreground text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
           <div className="flex gap-2">

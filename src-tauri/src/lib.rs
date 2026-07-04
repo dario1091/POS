@@ -175,6 +175,7 @@ pub fn run() {
             commands::hardware::configure_business,
             commands::hardware::get_hardware_config,
             commands::hardware::list_serial_ports,
+            commands::hardware::list_printers,
             commands::hardware::print_delivery_receipt,
             commands::hardware::print_cash_cut_receipt,
             // Network
