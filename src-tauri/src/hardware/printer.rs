@@ -74,33 +74,35 @@ impl Printer {
 
         // Separator
         buffer.extend_from_slice(&[ESC, b'a', 0]); // Left align
-        buffer.extend_from_slice(b"--------------------------------");
+        buffer.extend_from_slice(b"------------------------------------------------");
         buffer.push(LF);
 
         // Items
         for item in &ticket.items {
-            // Product name
-            let name = if item.name.len() > 20 {
-                &item.name[..20]
+            // Product name - full width (48 chars for 80mm)
+            let name = if item.name.len() > 48 {
+                &item.name[..48]
             } else {
                 &item.name
             };
             buffer.extend_from_slice(name.as_bytes());
             buffer.push(LF);
 
-            // Quantity x Price = Subtotal (right-aligned)
-            let detail = format!(
-                "  {} x ${:.2}         ${:.2}",
-                format_qty(item.quantity),
-                item.unit_price,
-                item.subtotal
-            );
+            // Quantity x Price = Subtotal (right-aligned on 48 chars)
+            let left = format!("  {} x ${:.2}", format_qty(item.quantity), item.unit_price);
+            let right = format!("${:.2}", item.subtotal);
+            let spaces = if left.len() + right.len() < 48 {
+                48 - left.len() - right.len()
+            } else {
+                2
+            };
+            let detail = format!("{}{}{}", left, " ".repeat(spaces), right);
             buffer.extend_from_slice(detail.as_bytes());
             buffer.push(LF);
         }
 
         // Separator
-        buffer.extend_from_slice(b"--------------------------------");
+        buffer.extend_from_slice(b"------------------------------------------------");
         buffer.push(LF);
 
         // Totals - right aligned
@@ -185,7 +187,7 @@ impl Printer {
 
         // Separator
         buffer.extend_from_slice(&[ESC, b'a', 0]);
-        buffer.extend_from_slice(b"--------------------------------");
+        buffer.extend_from_slice(b"------------------------------------------------");
         buffer.push(LF);
 
         buffer.extend_from_slice(b"Texto normal");
@@ -201,7 +203,7 @@ impl Printer {
         buffer.extend_from_slice(&[GS, b'!', 0x00]);
         buffer.push(LF);
 
-        buffer.extend_from_slice(b"--------------------------------");
+        buffer.extend_from_slice(b"------------------------------------------------");
         buffer.push(LF);
 
         buffer.extend_from_slice(&[ESC, b'a', 1]);
@@ -323,7 +325,7 @@ impl Printer {
         buffer.extend_from_slice(format!("Cajero: {}", data.cashier_name).as_bytes());
         buffer.push(LF);
 
-        buffer.extend_from_slice(b"--------------------------------");
+        buffer.extend_from_slice(b"------------------------------------------------");
         buffer.push(LF);
 
         // Amount - big and bold
@@ -336,7 +338,7 @@ impl Printer {
         buffer.extend_from_slice(&[ESC, b'E', 0]);
 
         buffer.extend_from_slice(&[ESC, b'a', 0]); // Left
-        buffer.extend_from_slice(b"--------------------------------");
+        buffer.extend_from_slice(b"------------------------------------------------");
         buffer.push(LF);
 
         buffer.push(LF);
@@ -393,7 +395,7 @@ impl Printer {
         buffer.extend_from_slice(format!("Transacciones:       {}", data.transactions).as_bytes());
         buffer.push(LF);
 
-        buffer.extend_from_slice(b"--------------------------------");
+        buffer.extend_from_slice(b"------------------------------------------------");
         buffer.push(LF);
 
         buffer.extend_from_slice(&[ESC, b'E', 1]);
@@ -401,7 +403,7 @@ impl Printer {
         buffer.extend_from_slice(&[ESC, b'E', 0]);
         buffer.push(LF);
 
-        buffer.extend_from_slice(b"--------------------------------");
+        buffer.extend_from_slice(b"------------------------------------------------");
         buffer.push(LF);
 
         buffer.extend_from_slice(format!("Efectivo:     ${:.2}", data.cash_total).as_bytes());
@@ -416,13 +418,13 @@ impl Printer {
             buffer.push(LF);
         }
 
-        buffer.extend_from_slice(b"--------------------------------");
+        buffer.extend_from_slice(b"------------------------------------------------");
         buffer.push(LF);
 
         if data.deliveries_count > 0 {
             buffer.extend_from_slice(format!("Entregas ({}): -${:.2}", data.deliveries_count, data.deliveries_total).as_bytes());
             buffer.push(LF);
-            buffer.extend_from_slice(b"--------------------------------");
+            buffer.extend_from_slice(b"------------------------------------------------");
             buffer.push(LF);
         }
 

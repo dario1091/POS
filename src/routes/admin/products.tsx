@@ -252,17 +252,17 @@ export function ProductsPage() {
       </div>
 
       <div className="rounded-lg border border-border overflow-hidden">
-        <table className="w-full">
+        <table className="w-full table-fixed">
           <thead className="bg-card">
             <tr className="border-b border-border">
-              <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Ref</th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Código</th>
+              <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground w-12">Ref</th>
+              <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground w-32">Código</th>
               <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Nombre</th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Categoría</th>
-              <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">P. Venta</th>
-              <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Stock</th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Unidad</th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Acciones</th>
+              <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground w-24">Categoría</th>
+              <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground w-24">P. Venta</th>
+              <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground w-16">Stock</th>
+              <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground w-16">Unidad</th>
+              <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground w-32">Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -273,7 +273,7 @@ export function ProductsPage() {
                 <tr key={product.id} className="border-b border-border hover:bg-card/50">
                   <td className="px-4 py-3 text-sm text-muted-foreground">{product.id}</td>
                   <td className="px-4 py-3 text-sm text-foreground font-mono">{product.barcode ?? "-"}</td>
-                  <td className="px-4 py-3 text-sm text-foreground">{product.name}</td>
+                  <td className="px-4 py-3 text-sm text-foreground truncate" title={product.name}>{product.name}</td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">{categoryName}</td>
                   <td className="px-4 py-3 text-sm text-foreground text-right font-mono">
                     ${product.sale_price.toFixed(2)}

@@ -136,4 +136,5 @@ export const api = {
   // Updater
   checkForUpdates: () => invoke<{ current_version: string; latest_version: string; has_update: boolean; download_url: string | null }>("check_for_updates"),
   installUpdate: (downloadUrl: string) => invoke<string>("install_update", { downloadUrl }),
+  restartApp: () => invoke<void>("restart_app"),
 };

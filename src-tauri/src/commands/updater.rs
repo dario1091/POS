@@ -100,6 +100,17 @@ pub async fn install_update(download_url: String) -> Result<String, String> {
     }
 }
 
+#[tauri::command]
+pub fn restart_app(app: tauri::AppHandle) -> Result<(), String> {
+    // Restart by spawning a new instance and exiting current
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    std::process::Command::new(exe)
+        .spawn()
+        .map_err(|e| format!("Error reiniciando: {}", e))?;
+    app.exit(0);
+    Ok(())
+}
+
 /// Compare semver versions (simple: a > b?)
 fn version_gt(a: &str, b: &str) -> bool {
     let parse = |v: &str| -> Vec<u32> {

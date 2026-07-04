@@ -6,6 +6,9 @@ export function InventoryPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [showAdjust, setShowAdjust] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<number | null>(null);
+  const [selectedProductName, setSelectedProductName] = useState("");
+  const [productSearch, setProductSearch] = useState("");
+  const [productResults, setProductResults] = useState<Product[]>([]);
   const [adjustType, setAdjustType] = useState<"entrada" | "salida">("entrada");
   const [quantity, setQuantity] = useState("");
   const [reason, setReason] = useState("");
@@ -23,6 +26,35 @@ export function InventoryPage() {
     } catch (err) {
       setError(String(err));
     }
+  };
+
+  const handleProductSearch = async (query: string) => {
+    setProductSearch(query);
+    if (!query.trim()) {
+      setProductResults([]);
+      return;
+    }
+    // Try barcode first
+    const byCode = await api.searchProductByCode(query.trim());
+    if (byCode) {
+      setSelectedProduct(byCode.id);
+      setSelectedProductName(`${byCode.name} (Stock: ${byCode.stock})`);
+      setProductSearch("");
+      setProductResults([]);
+      return;
+    }
+    // Then search by name
+    if (query.length >= 2) {
+      const results = await api.searchProductsByName(query);
+      setProductResults(results);
+    }
+  };
+
+  const selectProductForAdjust = (product: Product) => {
+    setSelectedProduct(product.id);
+    setSelectedProductName(`${product.name} (Stock: ${product.stock})`);
+    setProductSearch("");
+    setProductResults([]);
   };
 
   const handleAdjust = async () => {
@@ -71,18 +103,41 @@ export function InventoryPage() {
         <div className="mb-6 p-4 rounded-lg bg-card border border-border space-y-3">
           <h3 className="text-sm font-medium text-foreground">Ajuste de inventario</h3>
           <div className="grid grid-cols-2 gap-3">
-            <select
-              value={selectedProduct ?? ""}
-              onChange={(e) => setSelectedProduct(Number(e.target.value) || null)}
-              className="px-3 py-2 rounded-md bg-input border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              <option value="">Seleccionar producto</option>
-              {products.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} (Stock: {p.stock})
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              {selectedProduct ? (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-input border border-border">
+                  <span className="text-sm text-foreground flex-1">{selectedProductName}</span>
+                  <button
+                    onClick={() => { setSelectedProduct(null); setSelectedProductName(""); }}
+                    className="text-xs text-destructive"
+                  >✕</button>
+                </div>
+              ) : (
+                <>
+                  <input
+                    type="text"
+                    placeholder="Escanear barcode o buscar por nombre..."
+                    value={productSearch}
+                    onChange={(e) => handleProductSearch(e.target.value)}
+                    className="w-full px-3 py-2 rounded-md bg-input border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    autoFocus
+                  />
+                  {productResults.length > 0 && (
+                    <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-card border border-border rounded-md shadow-lg max-h-40 overflow-auto">
+                      {productResults.map((p) => (
+                        <button
+                          key={p.id}
+                          onClick={() => selectProductForAdjust(p)}
+                          className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-accent transition-colors"
+                        >
+                          {p.name} <span className="text-muted-foreground">(Stock: {p.stock})</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
             <select
               value={adjustType}
               onChange={(e) => setAdjustType(e.target.value as "entrada" | "salida")}

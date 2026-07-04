@@ -318,6 +318,16 @@ function UpdateSection() {
     }
   };
 
+  const [showRestart, setShowRestart] = useState(false);
+
+  // Show restart button when update succeeds
+  const handleInstall = async () => {
+    await installUpdate();
+    if (!updateError) {
+      setShowRestart(true);
+    }
+  };
+
   return (
     <div className="space-y-3">
       {updateError && <p className="text-sm text-destructive">{updateError}</p>}
@@ -333,13 +343,20 @@ function UpdateSection() {
       {updateInfo?.has_update ? (
         <div className="flex gap-2">
           <button
-            onClick={installUpdate}
+            onClick={handleInstall}
             disabled={installing}
             className="px-4 py-2 rounded-md bg-success text-white text-sm font-medium hover:bg-success/90 disabled:opacity-50 transition-colors"
           >
             {installing ? "Instalando..." : `Actualizar a v${updateInfo.latest_version}`}
           </button>
         </div>
+      ) : showRestart ? (
+        <button
+          onClick={() => api.restartApp()}
+          className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+        >
+          Reiniciar aplicación
+        </button>
       ) : (
         <button
           onClick={checkUpdates}

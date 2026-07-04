@@ -634,15 +634,15 @@ export function PosPage() {
           )}
         </div>
         <div className="flex items-center gap-4">
-          <div className="text-xs text-muted-foreground space-x-3">
-            <span>F1:[monto]+Efectivo</span>
-            <span>F2:[monto]+Tarjeta</span>
-            <span>F3:Eliminar</span>
-            <span>F4:Cancelar</span>
-            <span>F5:Cliente</span>
-            <span>F6:Devolución</span>
-            <span>F9:Reimprimir</span>
-            <span>Ctrl+N:Nueva venta</span>
+          <div className="flex gap-1">
+            <KeyBadge key_="F1" label="Efectivo" />
+            <KeyBadge key_="F2" label="Tarjeta" />
+            <KeyBadge key_="F3" label="Eliminar" />
+            <KeyBadge key_="F4" label="Cancelar" />
+            <KeyBadge key_="F5" label="Cliente" />
+            <KeyBadge key_="F6" label="Devolución" />
+            <KeyBadge key_="F9" label="Reimprimir" />
+            <KeyBadge key_="Ctrl+N" label="Nueva" />
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -1234,6 +1234,16 @@ export function PosPage() {
           <p className="text-xs text-muted-foreground mt-3">↑↓ para navegar | Enter para reimprimir | Escape para cerrar</p>
         </Modal>
       )}
+    </div>
+  );
+}
+
+// Key badge component for shortcuts
+function KeyBadge({ key_, label }: { key_: string; label: string }) {
+  return (
+    <div className="flex flex-col items-center px-2 py-1 rounded bg-secondary/80 border border-border min-w-[52px]">
+      <span className="text-[10px] font-bold text-foreground">{key_}</span>
+      <span className="text-[9px] text-muted-foreground leading-tight">{label}</span>
     </div>
   );
 }
