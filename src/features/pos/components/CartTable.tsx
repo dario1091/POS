@@ -11,6 +11,7 @@ export function CartTable({ cart, selectedIndex }: CartTableProps) {
       <thead className="bg-card sticky top-0">
         <tr className="border-b border-border">
           <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground w-12">#</th>
+          <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground w-16">Ref</th>
           <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Producto</th>
           <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground w-24">Cant.</th>
           <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground w-32">P. Unit.</th>
@@ -28,6 +29,7 @@ export function CartTable({ cart, selectedIndex }: CartTableProps) {
             }`}
           >
             <td className="px-4 py-3 text-sm text-muted-foreground">{index + 1}</td>
+            <td className="px-4 py-3 text-xs text-muted-foreground font-mono">{item.product.id}</td>
             <td className="px-4 py-3 text-sm text-foreground font-medium">{item.product.name}</td>
             <td className="px-4 py-3 text-sm text-foreground text-right font-mono">{item.quantity}</td>
             <td className="px-4 py-3 text-sm text-foreground text-right font-mono">
