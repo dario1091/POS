@@ -268,12 +268,162 @@ export function HardwarePage() {
         </div>
       </section>
 
+      {/* Backup */}
+      <BackupSection />
+
       {/* System Updates */}
       <section className="mb-8 p-4 rounded-lg bg-card border border-border">
         <h2 className="text-lg font-semibold text-foreground mb-3">Actualizaciones del Sistema</h2>
         <UpdateSection />
       </section>
     </div>
+  );
+}
+
+function BackupSection() {
+  const [backups, setBackups] = useState<{ filename: string; path: string; size_bytes: number; created_at: string }[]>([]);
+  const [config, setConfig] = useState<{ enabled: boolean; interval_hours: number; max_backups: number; backup_path: string }>({
+    enabled: true, interval_hours: 4, max_backups: 5, backup_path: "",
+  });
+  const [creating, setCreating] = useState(false);
+  const [backupSuccess, setBackupSuccess] = useState("");
+  const [backupError, setBackupError] = useState("");
+
+  useEffect(() => {
+    loadBackups();
+    loadConfig();
+  }, []);
+
+  useEffect(() => {
+    if (backupSuccess) { const t = setTimeout(() => setBackupSuccess(""), 4000); return () => clearTimeout(t); }
+  }, [backupSuccess]);
+
+  const loadBackups = async () => {
+    try { setBackups(await api.listBackups()); } catch {}
+  };
+
+  const loadConfig = async () => {
+    try { setConfig(await api.getBackupConfig()); } catch {}
+  };
+
+  const handleCreateBackup = async () => {
+    setCreating(true);
+    setBackupError("");
+    try {
+      const info = await api.createBackup();
+      setBackupSuccess(`✅ Backup creado: ${info.filename} (${(info.size_bytes / 1024 / 1024).toFixed(1)} MB)`);
+      await loadBackups();
+    } catch (err) {
+      setBackupError(String(err));
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleSaveConfig = async () => {
+    try {
+      await api.setBackupConfig(config);
+      setBackupSuccess("Configuración de backup guardada. Los cambios se aplican al reiniciar la app.");
+    } catch (err) {
+      setBackupError(String(err));
+    }
+  };
+
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  };
+
+  return (
+    <section className="mb-8 p-4 rounded-lg bg-card border border-border">
+      <h2 className="text-lg font-semibold text-foreground mb-3">Backup de Base de Datos</h2>
+
+      {backupError && <p className="text-sm text-destructive mb-3">{backupError}</p>}
+      {backupSuccess && <p className="text-sm text-success mb-3">{backupSuccess}</p>}
+
+      <div className="space-y-4">
+        {/* Manual backup */}
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-foreground">Crear backup ahora</p>
+            <p className="text-xs text-muted-foreground">Copia segura de la base de datos</p>
+          </div>
+          <button
+            onClick={handleCreateBackup}
+            disabled={creating}
+            className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+          >
+            {creating ? "Creando..." : "Hacer backup"}
+          </button>
+        </div>
+
+        {/* Config */}
+        <div className="border-t border-border pt-3 space-y-3">
+          <p className="text-sm font-medium text-foreground">Configuración automática</p>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1">Intervalo (horas)</label>
+              <input
+                type="number"
+                min="1"
+                max="24"
+                value={config.interval_hours}
+                onChange={(e) => setConfig({ ...config, interval_hours: parseInt(e.target.value) || 4 })}
+                className="w-full px-3 py-2 rounded-md bg-input border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1">Máx. backups</label>
+              <input
+                type="number"
+                min="1"
+                max="20"
+                value={config.max_backups}
+                onChange={(e) => setConfig({ ...config, max_backups: parseInt(e.target.value) || 5 })}
+                className="w-full px-3 py-2 rounded-md bg-input border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <div className="flex items-end">
+              <button
+                onClick={handleSaveConfig}
+                className="w-full px-3 py-2 rounded-md bg-secondary text-secondary-foreground text-sm font-medium hover:bg-secondary/80 transition-colors"
+              >
+                Guardar
+              </button>
+            </div>
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground block mb-1">Ruta de backups (vacío = por defecto)</label>
+            <input
+              type="text"
+              value={config.backup_path}
+              onChange={(e) => setConfig({ ...config, backup_path: e.target.value })}
+              placeholder="Ej: /media/usb/pos-backups/"
+              className="w-full px-3 py-2 rounded-md bg-input border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+        </div>
+
+        {/* Backup list */}
+        {backups.length > 0 && (
+          <div className="border-t border-border pt-3">
+            <p className="text-sm font-medium text-foreground mb-2">Backups existentes ({backups.length})</p>
+            <div className="space-y-1 max-h-40 overflow-auto">
+              {backups.map((b) => (
+                <div key={b.filename} className="flex items-center justify-between px-3 py-2 rounded-md bg-secondary/30 text-sm">
+                  <div>
+                    <span className="text-foreground font-mono text-xs">{b.filename}</span>
+                    <span className="text-muted-foreground text-xs ml-2">{b.created_at}</span>
+                  </div>
+                  <span className="text-muted-foreground text-xs">{formatSize(b.size_bytes)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 

@@ -103,6 +103,15 @@ pub fn run() {
                 });
             }
 
+            // Start automatic backup thread
+            let backup_config = db::backup::BackupConfig::load(&app_data_dir);
+            let backup_dir = if backup_config.backup_path.is_empty() {
+                app_data_dir.join("backups")
+            } else {
+                std::path::PathBuf::from(&backup_config.backup_path)
+            };
+            db::backup::start_auto_backup(pool.clone(), backup_dir, backup_config);
+
             // Manage state
             app.manage(AppState {
                 db: pool,
@@ -192,6 +201,11 @@ pub fn run() {
             commands::updater::check_for_updates,
             commands::updater::install_update,
             commands::updater::restart_app,
+            // Backup
+            commands::backup::create_backup,
+            commands::backup::list_backups,
+            commands::backup::get_backup_config,
+            commands::backup::set_backup_config,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

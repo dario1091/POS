@@ -9,3 +9,4 @@ pub mod hardware;
 pub mod network;
 pub mod reports;
 pub mod updater;
+pub mod backup;

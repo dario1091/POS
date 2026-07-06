@@ -165,4 +165,10 @@ export const api = {
   checkForUpdates: () => invoke<{ current_version: string; latest_version: string; has_update: boolean; download_url: string | null }>("check_for_updates"),
   installUpdate: (downloadUrl: string) => invoke<string>("install_update", { downloadUrl }),
   restartApp: () => invoke<void>("restart_app"),
+
+  // Backup
+  createBackup: () => invoke<{ filename: string; path: string; size_bytes: number; created_at: string }>("create_backup"),
+  listBackups: () => invoke<{ filename: string; path: string; size_bytes: number; created_at: string }[]>("list_backups"),
+  getBackupConfig: () => invoke<{ enabled: boolean; interval_hours: number; max_backups: number; backup_path: string }>("get_backup_config"),
+  setBackupConfig: (config: { enabled: boolean; interval_hours: number; max_backups: number; backup_path: string }) => invoke<void>("set_backup_config", { config }),
 };
