@@ -152,17 +152,6 @@ export function PosPage() {
     } catch (err) { setError(String(err)); }
   }, [deliveryAmount, deliverySupervisor, focusInput]);
 
-  // --- Commands hook ---
-  const { executeCommand } = useCommands({
-    addToCart, setError, setSuccess, setCommand,
-    openCashCut: (data) => { setCashCutData(data); setShowCashCutModal(true); },
-    openCreditPay: () => { setShowCreditPayModal(true); setTimeout(() => document.getElementById("credit-pay-search")?.focus(), 50); },
-    openDelivery: (amount) => { if (amount) setDeliveryAmount(amount); setShowDeliveryModal(true); setTimeout(() => document.getElementById("delivery-amount")?.focus(), 50); },
-    openSearch: (results) => { setSearchResults(results); setShowSearchModal(true); },
-    openPriceCheck: (product) => { setPriceInfo(product); setShowPriceModal(true); },
-    requireAdminAuth,
-  });
-
   // --- addToCart wrapper for "monto" products ---
   const addToCartWithAmountCheck = useCallback((product: Product, quantity: number, customPrice?: number) => {
     if (product.price_type === "monto" && !customPrice) {
@@ -174,6 +163,18 @@ export function PosPage() {
     addToCart(product, quantity, customPrice);
   }, [addToCart]);
 
+  // --- Commands hook ---
+  const { executeCommand } = useCommands({
+    addToCart: addToCartWithAmountCheck, setError, setSuccess, setCommand,
+    openCashCut: (data) => { setCashCutData(data); setShowCashCutModal(true); },
+    openCreditPay: () => { setShowCreditPayModal(true); setTimeout(() => document.getElementById("credit-pay-search")?.focus(), 50); },
+    openDelivery: (amount) => { if (amount) setDeliveryAmount(amount); setShowDeliveryModal(true); setTimeout(() => document.getElementById("delivery-amount")?.focus(), 50); },
+    openSearch: (results) => { setSearchResults(results); setShowSearchModal(true); },
+    openPriceCheck: (product) => { setPriceInfo(product); setShowPriceModal(true); },
+    requireAdminAuth,
+  });
+
+  // --- addToCart wrapper for "monto" products ---
   // --- Customer search handler ---
   const handleCustomerSearch = useCallback(async (query: string) => {
     setCustomerSearch(query);
