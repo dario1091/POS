@@ -334,7 +334,7 @@ export function InventoryPage() {
             </p>
             <p><strong>unidad:</strong> pieza | kg — <strong>tipo_precio:</strong> fijo | bascula | monto</p>
             <p><strong>categoría:</strong> si no existe se crea automáticamente. Si vacía → "General"</p>
-            <p className="mt-1 text-warning">⚠️ Los códigos de barras en Excel deben tener formato TEXTO para que no se conviertan a notación científica (7.7E+12)</p>
+            <p className="mt-1 text-warning">⚠️ Los códigos de barras en Excel: formatea la columna como Número (0 decimales) para que se vean completos y no en notación científica.</p>
           </div>
 
           {/* File input */}
