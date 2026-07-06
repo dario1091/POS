@@ -1,6 +1,6 @@
 use rusqlite::Connection;
 
-const MIGRATIONS: &[&str] = &[MIGRATION_001, MIGRATION_002, MIGRATION_003, MIGRATION_004, MIGRATION_005, MIGRATION_006, MIGRATION_007, MIGRATION_008, MIGRATION_009, MIGRATION_010, MIGRATION_011];
+const MIGRATIONS: &[&str] = &[MIGRATION_001, MIGRATION_002, MIGRATION_003, MIGRATION_004, MIGRATION_005, MIGRATION_006, MIGRATION_007, MIGRATION_008, MIGRATION_009, MIGRATION_010, MIGRATION_011, MIGRATION_012];
 
 const MIGRATION_001: &str = r#"
 -- Users
@@ -298,6 +298,8 @@ ALTER TABLE sales ADD COLUMN cancel_reason TEXT;
 "#;
 
 const MIGRATION_011: &str = include_str!("migration_011_products.sql");
+
+const MIGRATION_012: &str = include_str!("migration_012_default_products.sql");
 
 pub fn run_migrations(conn: &Connection) -> Result<(), rusqlite::Error> {
     // Create migrations tracking table

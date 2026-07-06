@@ -67,6 +67,29 @@ fn seed_database(pool: &DbPool) -> Result<(), String> {
         println!("Created default customer: Público en general");
     }
 
+    // Default system products (IDs 1-6, always available for quick access)
+    let prod_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM products WHERE id <= 6", [], |row| row.get(0))
+        .map_err(|e| e.to_string())?;
+
+    if prod_count == 0 {
+        conn.execute_batch(
+            "INSERT OR IGNORE INTO products (id, name, sale_price, cost_price, stock, unit, min_stock, price_type, active)
+             VALUES (1, 'Bolsa pequeña', 200, 100, 9999, 'pieza', 0, 'fijo', 1);
+             INSERT OR IGNORE INTO products (id, name, sale_price, cost_price, stock, unit, min_stock, price_type, active)
+             VALUES (2, 'Bolsa grande', 400, 200, 9999, 'pieza', 0, 'fijo', 1);
+             INSERT OR IGNORE INTO products (id, name, sale_price, cost_price, stock, unit, min_stock, price_type, active)
+             VALUES (3, 'Frutas y Verduras', 0, 0, 9999, 'kg', 0, 'monto', 1);
+             INSERT OR IGNORE INTO products (id, name, sale_price, cost_price, stock, unit, min_stock, price_type, active)
+             VALUES (4, 'Carnes', 0, 0, 9999, 'kg', 0, 'monto', 1);
+             INSERT OR IGNORE INTO products (id, name, sale_price, cost_price, stock, unit, min_stock, price_type, active)
+             VALUES (5, 'Pollo', 0, 0, 9999, 'kg', 0, 'monto', 1);
+             INSERT OR IGNORE INTO products (id, name, sale_price, cost_price, stock, unit, min_stock, price_type, active)
+             VALUES (6, 'Pescados', 0, 0, 9999, 'kg', 0, 'monto', 1);"
+        ).map_err(|e| e.to_string())?;
+        println!("Created default products: Bolsas (1-2), Fruver (3), Carnes (4), Pollo (5), Pescados (6)");
+    }
+
     Ok(())
 }
 
