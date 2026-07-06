@@ -1,6 +1,6 @@
 use rusqlite::Connection;
 
-const MIGRATIONS: &[&str] = &[MIGRATION_001, MIGRATION_002, MIGRATION_003, MIGRATION_004, MIGRATION_005, MIGRATION_006, MIGRATION_007, MIGRATION_008, MIGRATION_009, MIGRATION_010];
+const MIGRATIONS: &[&str] = &[MIGRATION_001, MIGRATION_002, MIGRATION_003, MIGRATION_004, MIGRATION_005, MIGRATION_006, MIGRATION_007, MIGRATION_008, MIGRATION_009, MIGRATION_010, MIGRATION_011];
 
 const MIGRATION_001: &str = r#"
 -- Users
@@ -297,6 +297,8 @@ ALTER TABLE sales ADD COLUMN cancelled_by INTEGER;
 ALTER TABLE sales ADD COLUMN cancel_reason TEXT;
 "#;
 
+const MIGRATION_011: &str = include_str!("migration_011_products.sql");
+
 pub fn run_migrations(conn: &Connection) -> Result<(), rusqlite::Error> {
     // Create migrations tracking table
     conn.execute_batch(
@@ -315,8 +317,16 @@ pub fn run_migrations(conn: &Connection) -> Result<(), rusqlite::Error> {
         let migration_id = (i + 1) as i64;
         if migration_id > applied_count {
             conn.execute_batch("BEGIN TRANSACTION;")?;
-            match conn.execute_batch(migration) {
-                Ok(_) => {
+
+            // Migration 011 is large (4371 products) — execute line by line
+            let result = if migration_id == 11 {
+                run_large_migration(conn, migration)
+            } else {
+                conn.execute_batch(migration).map(|_| ())
+            };
+
+            match result {
+                Ok(()) => {
                     conn.execute(
                         "INSERT INTO _migrations (id) VALUES (?1)",
                         rusqlite::params![migration_id],
@@ -332,5 +342,17 @@ pub fn run_migrations(conn: &Connection) -> Result<(), rusqlite::Error> {
         }
     }
 
+    Ok(())
+}
+
+/// Execute a large migration statement by statement to avoid parser limits
+fn run_large_migration(conn: &Connection, sql: &str) -> Result<(), rusqlite::Error> {
+    for line in sql.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with("--") {
+            continue;
+        }
+        conn.execute_batch(trimmed)?;
+    }
     Ok(())
 }

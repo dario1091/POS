@@ -65,6 +65,8 @@ export const api = {
     quantity: number;
     reason: string;
   }) => invoke<void>("adjust_inventory", { adjustment }),
+  bulkAdjustInventory: (items: { product_id: number; quantity: number; sale_price: number; cost_price: number }[], reason: string) =>
+    invoke<number>("bulk_adjust_inventory", { items, reason }),
   listAdjustments: (productId?: number) =>
     invoke<unknown[]>("list_adjustments", { productId: productId ?? null }),
 
@@ -98,6 +100,9 @@ export const api = {
   getTopProducts: (from: string, to: string, limit: number) => invoke<{
     product_id: number; product_name: string; total_quantity: number; total_revenue: number; times_sold: number;
   }[]>("get_top_products", { from, to, limit }),
+  getSalesByCategory: (from: string, to: string) => invoke<{
+    category_id: number; category_name: string; total_revenue: number; total_quantity: number; total_transactions: number;
+  }[]>("get_sales_by_category", { from, to }),
   getCashCutSummary: () => invoke<{
     total_sales: number; cash_sales: number; card_sales: number;
     transfer_sales: number; transactions: number; last_cut_date: string | null;

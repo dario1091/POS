@@ -164,6 +164,7 @@ pub fn run() {
             // Inventory
             commands::inventory::adjust_inventory,
             commands::inventory::list_adjustments,
+            commands::inventory::bulk_adjust_inventory,
             // Hardware
             commands::hardware::test_printer,
             commands::hardware::print_ticket,
@@ -198,6 +199,7 @@ pub fn run() {
             commands::reports::create_credit_payment,
             commands::reports::cancel_sale,
             commands::reports::get_recent_sales,
+            commands::reports::get_sales_by_category,
             // Updater
             commands::updater::check_for_updates,
             commands::updater::install_update,

@@ -789,3 +789,58 @@ pub fn get_recent_sales(limit: i64, state: State<'_, AppState>) -> Result<Vec<Sa
 
     Ok(sales)
 }
+
+// --- Sales by category report ---
+
+#[derive(Debug, Serialize)]
+pub struct SalesByCategory {
+    pub category_id: i64,
+    pub category_name: String,
+    pub total_revenue: f64,
+    pub total_quantity: f64,
+    pub total_transactions: i64,
+}
+
+#[tauri::command]
+pub fn get_sales_by_category(
+    from: String,
+    to: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<SalesByCategory>, String> {
+    let conn = state.db.get().map_err(|e| e.to_string())?;
+
+    let mut stmt = conn
+        .prepare(
+            "SELECT COALESCE(p.category_id, 0) as cat_id,
+                    COALESCE(c.name, 'Sin categoría') as cat_name,
+                    SUM(si.subtotal) as revenue,
+                    SUM(si.quantity) as qty,
+                    COUNT(DISTINCT si.sale_id) as txns
+             FROM sale_items si
+             JOIN sales s ON s.id = si.sale_id
+             LEFT JOIN products p ON p.id = si.product_id
+             LEFT JOIN categories c ON c.id = p.category_id
+             WHERE date(s.created_at) >= date(?1)
+               AND date(s.created_at) <= date(?2)
+               AND s.cancelled = 0
+             GROUP BY cat_id, cat_name
+             ORDER BY revenue DESC",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let results = stmt
+        .query_map(params![from, to], |row| {
+            Ok(SalesByCategory {
+                category_id: row.get(0)?,
+                category_name: row.get(1)?,
+                total_revenue: row.get(2)?,
+                total_quantity: row.get(3)?,
+                total_transactions: row.get(4)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    Ok(results)
+}

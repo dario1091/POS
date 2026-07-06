@@ -57,6 +57,7 @@ export function PosPage() {
 
   const [priceInfo, setPriceInfo] = useState<Product | null>(null);
   const [searchResults, setSearchResults] = useState<Product[]>([]);
+  const [searchSelectedIndex, setSearchSelectedIndex] = useState(0);
   const [customerSearch, setCustomerSearch] = useState("");
   const [customerResults, setCustomerResults] = useState<Customer[]>([]);
 
@@ -232,13 +233,14 @@ export function PosPage() {
       return;
     }
 
-    // pv%name% — search by name
-    const nameSearch = trimmed.match(/^pv%(.+)%$/i);
+    // pv nombre — search by name (pv followed by space and text)
+    const nameSearch = trimmed.match(/^pv\s+(.+)$/i);
     if (nameSearch) {
       const name = nameSearch[1];
       try {
         const results = await api.searchProductsByName(name);
         setSearchResults(results);
+        setSearchSelectedIndex(0);
         setShowSearchModal(true);
       } catch (err) {
         setError("Error buscando productos");
@@ -617,9 +619,9 @@ export function PosPage() {
     if (e.key === "F4") {
       e.preventDefault();
       if (cart.length > 0) {
-        if (confirm("¿Cancelar la venta completa?")) {
-          clearCart();
-        }
+        clearCart();
+        setSuccess("Venta cancelada");
+        setTimeout(() => setSuccess(""), 2000);
       }
       return;
     }
@@ -895,7 +897,7 @@ export function PosPage() {
             setCommand(e.target.value);
             if (e.target.value) setSelectedIndex(-1);
           }}
-          placeholder="Código de barras | N*código | pv[código] | pv%nombre%"
+          placeholder="Código de barras | N*código | pv[código] | pv nombre"
           className="w-full px-4 py-3 rounded-md bg-input border-2 border-border text-foreground text-lg font-mono focus:outline-none focus:border-primary focus:ring-2 focus:ring-ring"
           autoFocus
           disabled={anyModalOpen}
@@ -1154,25 +1156,65 @@ export function PosPage() {
           {searchResults.length === 0 ? (
             <p className="text-muted-foreground">No se encontraron productos</p>
           ) : (
-            <div className="max-h-64 overflow-auto space-y-1">
-              {searchResults.map((p) => (
+            <div
+              className="max-h-64 overflow-auto space-y-1"
+              tabIndex={0}
+              autoFocus
+              ref={(el) => el?.focus()}
+              onKeyDown={(e) => {
+                if (e.key === "ArrowDown") {
+                  e.preventDefault();
+                  setSearchSelectedIndex((prev) => {
+                    const next = prev < searchResults.length - 1 ? prev + 1 : 0;
+                    document.getElementById(`search-result-${next}`)?.scrollIntoView({ block: "nearest" });
+                    return next;
+                  });
+                } else if (e.key === "ArrowUp") {
+                  e.preventDefault();
+                  setSearchSelectedIndex((prev) => {
+                    const next = prev > 0 ? prev - 1 : searchResults.length - 1;
+                    document.getElementById(`search-result-${next}`)?.scrollIntoView({ block: "nearest" });
+                    return next;
+                  });
+                } else if (e.key === "Enter") {
+                  e.preventDefault();
+                  const selected = searchResults[searchSelectedIndex];
+                  if (selected) {
+                    addToCart(selected, 1);
+                    setShowSearchModal(false);
+                    setSearchSelectedIndex(0);
+                    focusInput();
+                  }
+                }
+              }}
+            >
+              {searchResults.map((p, idx) => (
                 <button
+                  id={`search-result-${idx}`}
                   key={p.id}
                   onClick={() => {
                     addToCart(p, 1);
                     setShowSearchModal(false);
+                    setSearchSelectedIndex(0);
                     focusInput();
                   }}
-                  className="w-full text-left px-3 py-2 rounded-md hover:bg-accent text-sm transition-colors flex justify-between"
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors flex justify-between items-center ${
+                    idx === searchSelectedIndex
+                      ? "bg-primary/20 ring-1 ring-primary"
+                      : "hover:bg-accent"
+                  }`}
                 >
-                  <span className="text-foreground">{p.name}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground text-xs font-mono w-8">#{p.id}</span>
+                    <span className="text-foreground">{p.name}</span>
+                  </div>
                   <span className="text-primary font-mono">${p.sale_price.toFixed(2)}</span>
                 </button>
               ))}
             </div>
           )}
           <p className="text-xs text-muted-foreground mt-3">
-            {searchResults.length > 0 ? "Click para agregar al carrito" : "Presiona Escape o ✕ para cerrar"}
+            {searchResults.length > 0 ? "↑↓ para navegar, Enter para agregar" : "Presiona Escape o ✕ para cerrar"}
           </p>
         </Modal>
       )}
@@ -1387,7 +1429,7 @@ export function PosPage() {
               <h3 className="font-bold text-primary mb-1">Comandos en el input</h3>
               <div className="space-y-1 text-muted-foreground">
                 <p><span className="text-foreground font-mono">pv{"{código}"}</span> — Consultar precio</p>
-                <p><span className="text-foreground font-mono">pv%nombre%</span> — Buscar por nombre</p>
+                <p><span className="text-foreground font-mono">pv nombre</span> — Buscar por nombre</p>
                 <p><span className="text-foreground font-mono">CC</span> — Cierre de caja</p>
                 <p><span className="text-foreground font-mono">EP</span> — Entrega parcial de efectivo</p>
                 <p><span className="text-foreground font-mono">AB</span> — Abono a crédito de cliente</p>

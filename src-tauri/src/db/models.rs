@@ -215,6 +215,14 @@ pub struct AdjustInventory {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct BulkAdjustItem {
+    pub product_id: i64,
+    pub quantity: f64,
+    pub sale_price: f64,
+    pub cost_price: f64,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct LoginRequest {
     pub username: String,
     pub password: String,

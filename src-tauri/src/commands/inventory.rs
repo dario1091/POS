@@ -1,7 +1,7 @@
 use rusqlite::params;
 use tauri::State;
 
-use crate::db::models::{AdjustInventory, InventoryAdjustment};
+use crate::db::models::{AdjustInventory, BulkAdjustItem, InventoryAdjustment};
 use crate::AppState;
 
 #[tauri::command]
@@ -98,4 +98,62 @@ pub fn list_adjustments(product_id: Option<i64>, state: State<'_, AppState>) -> 
         .map_err(|e| e.to_string())?;
 
     Ok(adjustments)
+}
+
+#[tauri::command]
+pub fn bulk_adjust_inventory(
+    items: Vec<BulkAdjustItem>,
+    reason: String,
+    state: State<'_, AppState>,
+) -> Result<u64, String> {
+    if items.is_empty() {
+        return Err("No hay productos para ajustar".to_string());
+    }
+
+    let conn = state.db.get().map_err(|e| e.to_string())?;
+
+    // Get current user
+    let current_user = state.current_user.lock().map_err(|e| e.to_string())?;
+    let user = current_user
+        .as_ref()
+        .ok_or("No hay sesión activa".to_string())?;
+    let user_id = user.id;
+
+    conn.execute("BEGIN TRANSACTION", []).map_err(|e| e.to_string())?;
+
+    let result = (|| -> Result<u64, String> {
+        let mut count: u64 = 0;
+
+        for item in &items {
+            // Record inventory adjustment (entrada = set stock to quantity)
+            conn.execute(
+                "INSERT INTO inventory_adjustments (product_id, user_id, type, quantity, reason)
+                 VALUES (?1, ?2, 'entrada', ?3, ?4)",
+                params![item.product_id, user_id, item.quantity, reason],
+            )
+            .map_err(|e| e.to_string())?;
+
+            // Update product: stock, sale_price, cost_price
+            conn.execute(
+                "UPDATE products SET stock = ?1, sale_price = ?2, cost_price = ?3, updated_at = datetime('now', 'localtime') WHERE id = ?4",
+                params![item.quantity, item.sale_price, item.cost_price, item.product_id],
+            )
+            .map_err(|e| e.to_string())?;
+
+            count += 1;
+        }
+
+        Ok(count)
+    })();
+
+    match result {
+        Ok(count) => {
+            conn.execute("COMMIT", []).map_err(|e| e.to_string())?;
+            Ok(count)
+        }
+        Err(e) => {
+            let _ = conn.execute("ROLLBACK", []);
+            Err(e)
+        }
+    }
 }
