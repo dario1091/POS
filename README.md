@@ -20,7 +20,7 @@ Sistema de Punto de Venta para supermercados. Aplicación de escritorio nativa p
 ### Desde release (recomendado)
 
 ```bash
-wget https://github.com/dario1091/POS/releases/latest/download/pos-system_0.4.0_amd64.deb -O /tmp/pos.deb
+wget https://github.com/dario1091/POS/releases/latest/download/pos-system_0.5.0_amd64.deb -O /tmp/pos.deb
 sudo dpkg -i /tmp/pos.deb
 sudo usermod -a -G lp,dialout $USER
 # Cerrar sesión y volver a entrar
@@ -81,7 +81,7 @@ sudo dpkg -i src-tauri/target/release/bundle/deb/pos-system_*.deb
 | Comando | Acción |
 |---------|--------|
 | `pv{código}` | Consultar precio |
-| `pv%nombre%` | Buscar por nombre |
+| `pv nombre` | Buscar por nombre |
 | `CC` | Cierre de caja |
 | `EP` | Entrega parcial de efectivo |
 | `AB` | Abono a crédito |
