@@ -51,7 +51,7 @@ export function useCommands(options: UseCommandsOptions) {
     const trimmed = cmd.trim();
     if (!trimmed) return;
 
-    // $monto*código — agregar producto con precio custom
+    // $monto*código — agregar producto con precio custom (solo si es MAYOR al precio del sistema)
     const amountMatch = trimmed.match(/^\$(\d+(?:\.\d+)?)\*(.+)$/);
     if (amountMatch) {
       const amount = parseFloat(amountMatch[1]);
@@ -59,7 +59,11 @@ export function useCommands(options: UseCommandsOptions) {
       try {
         const product = await api.searchProductByCode(code);
         if (product) {
-          addToCart(product, 1, amount);
+          if (amount < product.sale_price) {
+            setError(`No se puede bajar el precio. Precio del sistema: $${product.sale_price.toFixed(2)}`);
+          } else {
+            addToCart(product, 1, amount);
+          }
         } else {
           setError(`Producto no encontrado: ${code}`);
         }
