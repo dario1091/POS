@@ -69,6 +69,16 @@ export const api = {
     invoke<number>("bulk_adjust_inventory", { items, reason }),
   listAdjustments: (productId?: number) =>
     invoke<unknown[]>("list_adjustments", { productId: productId ?? null }),
+  validateCsvProducts: (csvContent: string) =>
+    invoke<{
+      valid_count: number;
+      error_count: number;
+      warnings: string[];
+      errors: { row: number; field: string; message: string }[];
+      rows: { row_number: number; barcode: string | null; name: string; sale_price: number; cost_price: number; stock: number; category: string; unit: string; price_type: string; valid: boolean }[];
+    }>("validate_csv_products", { csvContent }),
+  importCsvProducts: (rows: { row_number: number; barcode: string | null; name: string; sale_price: number; cost_price: number; stock: number; category: string; unit: string; price_type: string; valid: boolean }[]) =>
+    invoke<number>("import_csv_products", { rows }),
 
   // Hardware
   testPrinter: () => invoke<string>("test_printer"),

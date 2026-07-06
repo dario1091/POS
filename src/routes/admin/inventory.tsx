@@ -23,6 +23,19 @@ export function InventoryPage() {
   const [loading, setLoading] = useState(false);
   const scanRef = useRef<HTMLInputElement>(null);
 
+  // CSV import state
+  const [showCsvImport, setShowCsvImport] = useState(false);
+  const [csvValidation, setCsvValidation] = useState<{
+    valid_count: number;
+    error_count: number;
+    warnings: string[];
+    errors: { row: number; field: string; message: string }[];
+    rows: { row_number: number; barcode: string | null; name: string; sale_price: number; cost_price: number; stock: number; category: string; unit: string; price_type: string; valid: boolean }[];
+  } | null>(null);
+  const [csvLoading, setCsvLoading] = useState(false);
+  const [csvFileName, setCsvFileName] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // Single adjust state (legacy)
   const [showAdjust, setShowAdjust] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<number | null>(null);
@@ -189,6 +202,65 @@ export function InventoryPage() {
     }
   };
 
+  // --- CSV Import logic ---
+  const handleCsvFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setCsvFileName(file.name);
+    setCsvLoading(true);
+    setError("");
+    setCsvValidation(null);
+
+    try {
+      const content = await file.text();
+      const result = await api.validateCsvProducts(content);
+      setCsvValidation(result);
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setCsvLoading(false);
+    }
+
+    // Reset file input so same file can be re-selected
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleCsvImport = async () => {
+    if (!csvValidation) return;
+    const validRows = csvValidation.rows.filter((r) => r.valid);
+    if (validRows.length === 0) {
+      setError("No hay productos válidos para importar");
+      return;
+    }
+
+    setCsvLoading(true);
+    setError("");
+    try {
+      const count = await api.importCsvProducts(validRows);
+      setSuccess(`✅ ${count} productos importados correctamente`);
+      setCsvValidation(null);
+      setCsvFileName("");
+      await loadProducts();
+      setTimeout(() => setSuccess(""), 5000);
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setCsvLoading(false);
+    }
+  };
+
+  const downloadTemplate = () => {
+    const template = "código_barras,nombre,precio_venta,precio_costo,stock,categoría,unidad,tipo_precio\n7702004003478,Aceite Girasol 1L,12500,9800,24,Víveres,pieza,fijo\n7501234567890,Arroz Diana 5kg,18900,15000,50,Víveres,pieza,fijo\n,Queso campesino,32000,25000,10,Lácteos,kg,bascula\n";
+    const blob = new Blob([template], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "plantilla_productos.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const lowStockProducts = products.filter(
     (p) => p.min_stock > 0 && p.stock <= p.min_stock
   );
@@ -200,8 +272,19 @@ export function InventoryPage() {
         <div className="flex gap-2">
           <button
             onClick={() => {
+              setShowCsvImport(!showCsvImport);
+              setShowBulkAdjust(false);
+              setShowAdjust(false);
+            }}
+            className="px-4 py-2 rounded-md bg-success text-white text-sm font-medium hover:bg-success/90 transition-colors"
+          >
+            {showCsvImport ? "Cerrar CSV" : "📁 Cargar CSV"}
+          </button>
+          <button
+            onClick={() => {
               setShowBulkAdjust(!showBulkAdjust);
               setShowAdjust(false);
+              setShowCsvImport(false);
             }}
             className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
           >
@@ -211,6 +294,7 @@ export function InventoryPage() {
             onClick={() => {
               setShowAdjust(!showAdjust);
               setShowBulkAdjust(false);
+              setShowCsvImport(false);
             }}
             className="px-4 py-2 rounded-md bg-muted text-foreground text-sm font-medium hover:bg-muted/80 transition-colors"
           >
@@ -221,6 +305,134 @@ export function InventoryPage() {
 
       {error && <p className="text-sm text-destructive mb-4">{error}</p>}
       {success && <p className="text-sm text-success mb-4">{success}</p>}
+
+      {/* CSV Import Panel */}
+      {showCsvImport && (
+        <div className="mb-6 p-4 rounded-lg bg-card border border-border space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-medium text-foreground">Importar productos desde CSV</h3>
+            <button
+              onClick={downloadTemplate}
+              className="px-3 py-1 rounded text-xs bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
+            >
+              📥 Descargar plantilla
+            </button>
+          </div>
+
+          <div className="text-xs text-muted-foreground space-y-1">
+            <p>Formato: <code className="bg-muted px-1 rounded">código_barras, nombre, precio_venta, precio_costo, stock, categoría, unidad, tipo_precio</code></p>
+            <p>• <strong>nombre</strong> y <strong>precio_venta</strong> son obligatorios. Los demás tienen valores por defecto.</p>
+            <p>• Separador: coma o punto y coma. Codificación: UTF-8.</p>
+          </div>
+
+          {/* File input */}
+          <div className="flex items-center gap-3">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,.txt"
+              onChange={handleCsvFileSelect}
+              className="hidden"
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+            >
+              Seleccionar archivo CSV
+            </button>
+            {csvFileName && <span className="text-sm text-muted-foreground">{csvFileName}</span>}
+            {csvLoading && <span className="text-sm text-muted-foreground animate-pulse">Procesando...</span>}
+          </div>
+
+          {/* Validation results */}
+          {csvValidation && (
+            <div className="space-y-3">
+              {/* Summary */}
+              <div className="flex gap-4 text-sm">
+                <span className="text-success font-medium">✅ {csvValidation.valid_count} válidos</span>
+                {csvValidation.error_count > 0 && (
+                  <span className="text-destructive font-medium">❌ {csvValidation.error_count} con errores</span>
+                )}
+                {csvValidation.warnings.length > 0 && (
+                  <span className="text-warning font-medium">⚠️ {csvValidation.warnings.length} advertencias</span>
+                )}
+              </div>
+
+              {/* Errors */}
+              {csvValidation.errors.length > 0 && (
+                <div className="max-h-32 overflow-auto rounded-md bg-destructive/10 border border-destructive/30 p-3">
+                  <p className="text-xs font-bold text-destructive mb-1">Errores:</p>
+                  {csvValidation.errors.map((err, i) => (
+                    <p key={i} className="text-xs text-destructive">
+                      Fila {err.row} ({err.field}): {err.message}
+                    </p>
+                  ))}
+                </div>
+              )}
+
+              {/* Warnings */}
+              {csvValidation.warnings.length > 0 && (
+                <div className="max-h-24 overflow-auto rounded-md bg-warning/10 border border-warning/30 p-3">
+                  <p className="text-xs font-bold text-warning mb-1">Advertencias:</p>
+                  {csvValidation.warnings.map((w, i) => (
+                    <p key={i} className="text-xs text-warning">{w}</p>
+                  ))}
+                </div>
+              )}
+
+              {/* Preview table (first 10 valid rows) */}
+              {csvValidation.valid_count > 0 && (
+                <div className="rounded-md border border-border overflow-hidden">
+                  <table className="w-full">
+                    <thead className="bg-muted/50">
+                      <tr className="border-b border-border">
+                        <th className="px-2 py-1 text-left text-xs text-muted-foreground">Código</th>
+                        <th className="px-2 py-1 text-left text-xs text-muted-foreground">Nombre</th>
+                        <th className="px-2 py-1 text-right text-xs text-muted-foreground">Precio</th>
+                        <th className="px-2 py-1 text-right text-xs text-muted-foreground">Stock</th>
+                        <th className="px-2 py-1 text-left text-xs text-muted-foreground">Categoría</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {csvValidation.rows.filter(r => r.valid).slice(0, 10).map((row) => (
+                        <tr key={row.row_number} className="border-b border-border">
+                          <td className="px-2 py-1 text-xs font-mono text-muted-foreground">{row.barcode || "—"}</td>
+                          <td className="px-2 py-1 text-xs text-foreground">{row.name}</td>
+                          <td className="px-2 py-1 text-xs text-right font-mono">${row.sale_price.toFixed(0)}</td>
+                          <td className="px-2 py-1 text-xs text-right font-mono">{row.stock}</td>
+                          <td className="px-2 py-1 text-xs text-muted-foreground">{row.category}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {csvValidation.valid_count > 10 && (
+                    <p className="px-2 py-1 text-xs text-muted-foreground bg-muted/30">
+                      ... y {csvValidation.valid_count - 10} productos más
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Import button */}
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => { setCsvValidation(null); setCsvFileName(""); }}
+                  className="px-3 py-2 rounded-md text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleCsvImport}
+                  disabled={csvLoading || csvValidation.valid_count === 0}
+                  className="px-6 py-2 rounded-md bg-success text-white text-sm font-bold hover:bg-success/90 transition-colors disabled:opacity-50"
+                >
+                  {csvLoading ? "Importando..." : `Importar ${csvValidation.valid_count} productos`}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Bulk Adjust Panel */}
       {showBulkAdjust && (

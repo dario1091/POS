@@ -151,6 +151,8 @@ pub fn run() {
             commands::inventory::adjust_inventory,
             commands::inventory::list_adjustments,
             commands::inventory::bulk_adjust_inventory,
+            commands::inventory::validate_csv_products,
+            commands::inventory::import_csv_products,
             // Hardware
             commands::hardware::test_printer,
             commands::hardware::print_ticket,
