@@ -258,6 +258,20 @@ pub fn validate_csv_products(csv_content: String, state: State<'_, AppState>) ->
         }
 
         let barcode = fields.first().map(|s| s.to_string()).filter(|s| !s.is_empty());
+        // Handle scientific notation from Excel (e.g., 7.7024E+12 → 7702400000000)
+        let barcode = barcode.map(|b| {
+            if b.to_uppercase().contains('E') {
+                // Try to parse as scientific notation and convert to integer string
+                let normalized = b.replace(',', ".");
+                if let Ok(num) = normalized.parse::<f64>() {
+                    format!("{:.0}", num)
+                } else {
+                    b
+                }
+            } else {
+                b
+            }
+        }).filter(|s| !s.is_empty());
         let name = fields.get(1).unwrap_or(&"").to_string();
         let sale_price_str = fields.get(2).unwrap_or(&"0");
         let cost_price_str = fields.get(3).unwrap_or(&"0");

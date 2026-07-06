@@ -251,7 +251,11 @@ export function InventoryPage() {
   };
 
   const downloadTemplate = () => {
-    const template = "código_barras,nombre,precio_venta,precio_costo,stock,categoría,unidad,tipo_precio\n7702004003478,Aceite Girasol 1L,12500,9800,24,Víveres,pieza,fijo\n7501234567890,Arroz Diana 5kg,18900,15000,50,Víveres,pieza,fijo\n,Queso campesino,32000,25000,10,Lácteos,kg,bascula\n";
+    const template = `código_barras,nombre,precio_venta,precio_costo,stock,categoría,unidad,tipo_precio
+7702004003478,Aceite Girasol 1L,12500,9800,24,Víveres,pieza,fijo
+7501234567890,Arroz Diana 5kg,18900,15000,50,Víveres,pieza,fijo
+,Queso campesino,32000,25000,10,Lácteos,kg,bascula
+`;
     const blob = new Blob([template], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -319,10 +323,18 @@ export function InventoryPage() {
             </button>
           </div>
 
-          <div className="text-xs text-muted-foreground space-y-1">
-            <p>Formato: <code className="bg-muted px-1 rounded">código_barras, nombre, precio_venta, precio_costo, stock, categoría, unidad, tipo_precio</code></p>
-            <p>• <strong>nombre</strong> y <strong>precio_venta</strong> son obligatorios. Los demás tienen valores por defecto.</p>
-            <p>• Separador: coma o punto y coma. Codificación: UTF-8.</p>
+          <div className="text-xs text-muted-foreground space-y-1 bg-secondary/30 p-3 rounded-md">
+            <p className="font-bold text-foreground mb-2">📋 Instrucciones:</p>
+            <p>1. Descarga la plantilla → ábrela en Excel</p>
+            <p>2. Llena los productos (solo <strong>nombre</strong> y <strong>precio_venta</strong> son obligatorios)</p>
+            <p>3. En Excel: <strong>Archivo → Guardar como → CSV (delimitado por comas)</strong></p>
+            <p>4. Sube el archivo .csv aquí</p>
+            <p className="mt-2 border-t border-border pt-2 text-muted-foreground">
+              <strong>Columnas:</strong> código_barras, nombre, precio_venta, precio_costo, stock, categoría, unidad, tipo_precio
+            </p>
+            <p><strong>unidad:</strong> pieza | kg — <strong>tipo_precio:</strong> fijo | bascula | monto</p>
+            <p><strong>categoría:</strong> si no existe se crea automáticamente. Si vacía → "General"</p>
+            <p className="mt-1 text-warning">⚠️ Los códigos de barras en Excel deben tener formato TEXTO para que no se conviertan a notación científica (7.7E+12)</p>
           </div>
 
           {/* File input */}
