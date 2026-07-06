@@ -57,7 +57,7 @@ pub fn get_daily_summary(date: String, state: State<'_, AppState>) -> Result<Dai
 
     let (total_sales, total_transactions): (f64, i64) = conn
         .query_row(
-            "SELECT COALESCE(SUM(total), 0), COUNT(*) FROM sales WHERE date(created_at) = date(?1)",
+            "SELECT COALESCE(SUM(total), 0), COUNT(*) FROM sales WHERE date(created_at) = date(?1) AND cancelled = 0",
             params![date],
             |row| Ok((row.get(0)?, row.get(1)?)),
         )
@@ -67,7 +67,7 @@ pub fn get_daily_summary(date: String, state: State<'_, AppState>) -> Result<Dai
         .query_row(
             "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp
              JOIN sales s ON s.id = sp.sale_id
-             WHERE date(s.created_at) = date(?1) AND sp.method = 'efectivo'",
+             WHERE date(s.created_at) = date(?1) AND sp.method = 'efectivo' AND s.cancelled = 0",
             params![date],
             |row| row.get(0),
         )
@@ -77,7 +77,7 @@ pub fn get_daily_summary(date: String, state: State<'_, AppState>) -> Result<Dai
         .query_row(
             "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp
              JOIN sales s ON s.id = sp.sale_id
-             WHERE date(s.created_at) = date(?1) AND sp.method = 'tarjeta'",
+             WHERE date(s.created_at) = date(?1) AND sp.method = 'tarjeta' AND s.cancelled = 0",
             params![date],
             |row| row.get(0),
         )
@@ -87,7 +87,7 @@ pub fn get_daily_summary(date: String, state: State<'_, AppState>) -> Result<Dai
         .query_row(
             "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp
              JOIN sales s ON s.id = sp.sale_id
-             WHERE date(s.created_at) = date(?1) AND sp.method = 'transferencia'",
+             WHERE date(s.created_at) = date(?1) AND sp.method = 'transferencia' AND s.cancelled = 0",
             params![date],
             |row| row.get(0),
         )
@@ -97,7 +97,7 @@ pub fn get_daily_summary(date: String, state: State<'_, AppState>) -> Result<Dai
         .query_row(
             "SELECT COALESCE(SUM(si.quantity), 0) FROM sale_items si
              JOIN sales s ON s.id = si.sale_id
-             WHERE date(s.created_at) = date(?1)",
+             WHERE date(s.created_at) = date(?1) AND s.cancelled = 0",
             params![date],
             |row| row.get(0),
         )
@@ -121,7 +121,7 @@ pub fn get_sales_by_range(from: String, to: String, state: State<'_, AppState>) 
         .prepare(
             "SELECT date(created_at) as sale_date, SUM(total) as day_total, COUNT(*) as day_count
              FROM sales
-             WHERE date(created_at) >= date(?1) AND date(created_at) <= date(?2)
+             WHERE date(created_at) >= date(?1) AND date(created_at) <= date(?2) AND cancelled = 0
              GROUP BY date(created_at)
              ORDER BY sale_date DESC",
         )
@@ -154,7 +154,7 @@ pub fn get_top_products(from: String, to: String, limit: i64, state: State<'_, A
                     COUNT(DISTINCT si.sale_id) as times
              FROM sale_items si
              JOIN sales s ON s.id = si.sale_id
-             WHERE date(s.created_at) >= date(?1) AND date(s.created_at) <= date(?2)
+             WHERE date(s.created_at) >= date(?1) AND date(s.created_at) <= date(?2) AND s.cancelled = 0
              GROUP BY si.product_id, si.product_name
              ORDER BY total_qty DESC
              LIMIT ?3",
@@ -194,14 +194,14 @@ pub fn get_cash_cut_summary(state: State<'_, AppState>) -> Result<CashCutSummary
     // Get sales since last cut (or all sales if no cuts yet)
     let (total_sales, transactions): (f64, i64) = if let Some(ref cut_date) = last_cut_date {
         conn.query_row(
-            "SELECT COALESCE(SUM(total), 0), COUNT(*) FROM sales WHERE created_at > ?1",
+            "SELECT COALESCE(SUM(total), 0), COUNT(*) FROM sales WHERE created_at > ?1 AND cancelled = 0",
             params![cut_date],
             |row| Ok((row.get(0)?, row.get(1)?)),
         )
         .map_err(|e| e.to_string())?
     } else {
         conn.query_row(
-            "SELECT COALESCE(SUM(total), 0), COUNT(*) FROM sales",
+            "SELECT COALESCE(SUM(total), 0), COUNT(*) FROM sales WHERE cancelled = 0",
             [],
             |row| Ok((row.get(0)?, row.get(1)?)),
         )
@@ -212,14 +212,14 @@ pub fn get_cash_cut_summary(state: State<'_, AppState>) -> Result<CashCutSummary
         conn.query_row(
             "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp
              JOIN sales s ON s.id = sp.sale_id
-             WHERE s.created_at > ?1 AND sp.method = 'efectivo'",
+             WHERE s.created_at > ?1 AND sp.method = 'efectivo' AND s.cancelled = 0",
             params![cut_date],
             |row| row.get(0),
         ).unwrap_or(0.0)
     } else {
         conn.query_row(
             "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp
-             JOIN sales s ON s.id = sp.sale_id WHERE sp.method = 'efectivo'",
+             JOIN sales s ON s.id = sp.sale_id WHERE sp.method = 'efectivo' AND s.cancelled = 0",
             [],
             |row| row.get(0),
         ).unwrap_or(0.0)
@@ -229,14 +229,14 @@ pub fn get_cash_cut_summary(state: State<'_, AppState>) -> Result<CashCutSummary
         conn.query_row(
             "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp
              JOIN sales s ON s.id = sp.sale_id
-             WHERE s.created_at > ?1 AND sp.method = 'tarjeta'",
+             WHERE s.created_at > ?1 AND sp.method = 'tarjeta' AND s.cancelled = 0",
             params![cut_date],
             |row| row.get(0),
         ).unwrap_or(0.0)
     } else {
         conn.query_row(
             "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp
-             JOIN sales s ON s.id = sp.sale_id WHERE sp.method = 'tarjeta'",
+             JOIN sales s ON s.id = sp.sale_id WHERE sp.method = 'tarjeta' AND s.cancelled = 0",
             [],
             |row| row.get(0),
         ).unwrap_or(0.0)
@@ -246,14 +246,14 @@ pub fn get_cash_cut_summary(state: State<'_, AppState>) -> Result<CashCutSummary
         conn.query_row(
             "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp
              JOIN sales s ON s.id = sp.sale_id
-             WHERE s.created_at > ?1 AND sp.method = 'transferencia'",
+             WHERE s.created_at > ?1 AND sp.method = 'transferencia' AND s.cancelled = 0",
             params![cut_date],
             |row| row.get(0),
         ).unwrap_or(0.0)
     } else {
         conn.query_row(
             "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp
-             JOIN sales s ON s.id = sp.sale_id WHERE sp.method = 'transferencia'",
+             JOIN sales s ON s.id = sp.sale_id WHERE sp.method = 'transferencia' AND s.cancelled = 0",
             [],
             |row| row.get(0),
         ).unwrap_or(0.0)
@@ -354,38 +354,38 @@ fn get_cash_cut_summary_internal(conn: &rusqlite::Connection) -> Result<CashCutS
 
     let (total_sales, transactions): (f64, i64) = if let Some(ref cut_date) = last_cut_date {
         conn.query_row(
-            "SELECT COALESCE(SUM(total), 0), COUNT(*) FROM sales WHERE created_at > ?1",
+            "SELECT COALESCE(SUM(total), 0), COUNT(*) FROM sales WHERE created_at > ?1 AND cancelled = 0",
             params![cut_date], |row| Ok((row.get(0)?, row.get(1)?)),
         ).map_err(|e| e.to_string())?
     } else {
-        conn.query_row("SELECT COALESCE(SUM(total), 0), COUNT(*) FROM sales", [], |row| Ok((row.get(0)?, row.get(1)?))).map_err(|e| e.to_string())?
+        conn.query_row("SELECT COALESCE(SUM(total), 0), COUNT(*) FROM sales WHERE cancelled = 0", [], |row| Ok((row.get(0)?, row.get(1)?))).map_err(|e| e.to_string())?
     };
 
     let cash_sales: f64 = if let Some(ref cut_date) = last_cut_date {
         conn.query_row(
-            "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE s.created_at > ?1 AND sp.method = 'efectivo'",
+            "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE s.created_at > ?1 AND sp.method = 'efectivo' AND s.cancelled = 0",
             params![cut_date], |row| row.get(0),
         ).unwrap_or(0.0)
     } else {
-        conn.query_row("SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE sp.method = 'efectivo'", [], |row| row.get(0)).unwrap_or(0.0)
+        conn.query_row("SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE sp.method = 'efectivo' AND s.cancelled = 0", [], |row| row.get(0)).unwrap_or(0.0)
     };
 
     let card_sales: f64 = if let Some(ref cut_date) = last_cut_date {
         conn.query_row(
-            "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE s.created_at > ?1 AND sp.method = 'tarjeta'",
+            "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE s.created_at > ?1 AND sp.method = 'tarjeta' AND s.cancelled = 0",
             params![cut_date], |row| row.get(0),
         ).unwrap_or(0.0)
     } else {
-        conn.query_row("SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE sp.method = 'tarjeta'", [], |row| row.get(0)).unwrap_or(0.0)
+        conn.query_row("SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE sp.method = 'tarjeta' AND s.cancelled = 0", [], |row| row.get(0)).unwrap_or(0.0)
     };
 
     let transfer_sales: f64 = if let Some(ref cut_date) = last_cut_date {
         conn.query_row(
-            "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE s.created_at > ?1 AND sp.method = 'transferencia'",
+            "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE s.created_at > ?1 AND sp.method = 'transferencia' AND s.cancelled = 0",
             params![cut_date], |row| row.get(0),
         ).unwrap_or(0.0)
     } else {
-        conn.query_row("SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE sp.method = 'transferencia'", [], |row| row.get(0)).unwrap_or(0.0)
+        conn.query_row("SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE sp.method = 'transferencia' AND s.cancelled = 0", [], |row| row.get(0)).unwrap_or(0.0)
     };
 
     Ok(CashCutSummary { total_sales, cash_sales, card_sales, transfer_sales, transactions, last_cut_date })
@@ -483,27 +483,27 @@ pub fn quick_cash_cut(state: State<'_, AppState>) -> Result<QuickCashCutResult, 
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
 
     let (total_sales, transactions): (f64, i64) = conn.query_row(
-        "SELECT COALESCE(SUM(total), 0), COUNT(*) FROM sales WHERE date(created_at) = date('now', 'localtime')",
+        "SELECT COALESCE(SUM(total), 0), COUNT(*) FROM sales WHERE date(created_at) = date('now', 'localtime') AND cancelled = 0",
         [], |row| Ok((row.get(0)?, row.get(1)?)),
     ).map_err(|e| e.to_string())?;
 
     let cash_total: f64 = conn.query_row(
-        "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE date(s.created_at) = date('now', 'localtime') AND sp.method = 'efectivo'",
+        "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE date(s.created_at) = date('now', 'localtime') AND sp.method = 'efectivo' AND s.cancelled = 0",
         [], |row| row.get(0),
     ).unwrap_or(0.0);
 
     let card_total: f64 = conn.query_row(
-        "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE date(s.created_at) = date('now', 'localtime') AND sp.method = 'tarjeta'",
+        "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE date(s.created_at) = date('now', 'localtime') AND sp.method = 'tarjeta' AND s.cancelled = 0",
         [], |row| row.get(0),
     ).unwrap_or(0.0);
 
     let transfer_total: f64 = conn.query_row(
-        "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE date(s.created_at) = date('now', 'localtime') AND sp.method = 'transferencia'",
+        "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE date(s.created_at) = date('now', 'localtime') AND sp.method = 'transferencia' AND s.cancelled = 0",
         [], |row| row.get(0),
     ).unwrap_or(0.0);
 
     let credit_total: f64 = conn.query_row(
-        "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE date(s.created_at) = date('now', 'localtime') AND sp.method = 'credito'",
+        "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE date(s.created_at) = date('now', 'localtime') AND sp.method = 'credito' AND s.cancelled = 0",
         [], |row| row.get(0),
     ).unwrap_or(0.0);
 
