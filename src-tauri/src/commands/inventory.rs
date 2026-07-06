@@ -258,20 +258,10 @@ pub fn validate_csv_products(csv_content: String, state: State<'_, AppState>) ->
         }
 
         let barcode = fields.first().map(|s| s.to_string()).filter(|s| !s.is_empty());
-        // Handle scientific notation from Excel (e.g., 7.7024E+12 → 7702400000000)
-        let barcode = barcode.map(|b| {
-            if b.to_uppercase().contains('E') {
-                // Try to parse as scientific notation and convert to integer string
-                let normalized = b.replace(',', ".");
-                if let Ok(num) = normalized.parse::<f64>() {
-                    format!("{:.0}", num)
-                } else {
-                    b
-                }
-            } else {
-                b
-            }
-        }).filter(|s| !s.is_empty());
+        // Detect scientific notation from Excel (e.g., 7.7024E+12) — reject it because
+        // Excel loses precision and the converted number won't match the real barcode
+        let barcode_error = barcode.as_ref().map_or(false, |b| b.to_uppercase().contains('E') || b.contains("E+"));
+        let barcode = if barcode_error { None } else { barcode };
         let name = fields.get(1).unwrap_or(&"").to_string();
         let sale_price_str = fields.get(2).unwrap_or(&"0");
         let cost_price_str = fields.get(3).unwrap_or(&"0");
@@ -288,6 +278,16 @@ pub fn validate_csv_products(csv_content: String, state: State<'_, AppState>) ->
         // Validate name
         if name.is_empty() {
             errors.push(CsvRowError { row: row_num, field: "nombre".to_string(), message: "Nombre vacío".to_string() });
+            row_valid = false;
+        }
+
+        // Report scientific notation barcode
+        if barcode_error {
+            errors.push(CsvRowError {
+                row: row_num,
+                field: "código_barras".to_string(),
+                message: format!("Código en notación científica ({}). Formatea la columna como TEXTO en Excel y vuelve a pegar los códigos.", fields[0]),
+            });
             row_valid = false;
         }
 
