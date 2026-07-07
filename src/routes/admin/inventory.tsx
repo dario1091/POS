@@ -532,6 +532,7 @@ export function InventoryPage() {
                           onChange={(e) =>
                             updateBulkItem(index, "quantity", e.target.value)
                           }
+                          onKeyDown={(e) => { if (e.key === "Enter") scanRef.current?.focus(); }}
                           className="w-20 px-2 py-1 rounded bg-input border border-border text-foreground text-sm text-right font-mono focus:outline-none focus:ring-2 focus:ring-ring"
                         />
                       </td>
@@ -543,6 +544,7 @@ export function InventoryPage() {
                           onChange={(e) =>
                             updateBulkItem(index, "sale_price", e.target.value)
                           }
+                          onKeyDown={(e) => { if (e.key === "Enter") scanRef.current?.focus(); }}
                           className="w-24 px-2 py-1 rounded bg-input border border-border text-foreground text-sm text-right font-mono focus:outline-none focus:ring-2 focus:ring-ring"
                         />
                       </td>
@@ -554,6 +556,7 @@ export function InventoryPage() {
                           onChange={(e) =>
                             updateBulkItem(index, "cost_price", e.target.value)
                           }
+                          onKeyDown={(e) => { if (e.key === "Enter") scanRef.current?.focus(); }}
                           className="w-24 px-2 py-1 rounded bg-input border border-border text-foreground text-sm text-right font-mono focus:outline-none focus:ring-2 focus:ring-ring"
                         />
                       </td>
