@@ -51,6 +51,7 @@ export function HelpModal({ show, onClose }: HelpModalProps) {
             <p><span className="text-foreground font-mono">F4</span> — Cancelar venta (pide confirmación)</p>
             <p><span className="text-foreground font-mono">F5</span> — Buscar/asignar cliente (Tab para fiar)</p>
             <p><span className="text-foreground font-mono">F6</span> — Modo devolución</p>
+            <p><span className="text-foreground font-mono">F7</span> — Abrir cajón de dinero</p>
             <p><span className="text-foreground font-mono">F8</span> — Historial del día (Enter para anular)</p>
             <p><span className="text-foreground font-mono">F9</span> — Reimprimir ticket (↑↓ + Enter)</p>
             <p><span className="text-foreground font-mono">F12</span> — Esta ayuda</p>

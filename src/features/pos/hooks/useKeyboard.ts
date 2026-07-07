@@ -34,6 +34,7 @@ interface UseKeyboardOptions {
   openReprintModal: () => void;
   openHelpModal: () => void;
   openConfirmCancel: () => void;
+  openCashDrawer: () => void;
   // Auth
   requireAdminAuth: (callback: () => void) => void;
   handleReturn: () => Promise<void>;
@@ -67,6 +68,7 @@ export function useKeyboard(options: UseKeyboardOptions) {
     openReprintModal,
     openHelpModal,
     openConfirmCancel,
+    openCashDrawer,
     requireAdminAuth,
     handleReturn,
   } = options;
@@ -163,6 +165,13 @@ export function useKeyboard(options: UseKeyboardOptions) {
       return;
     }
 
+    // F7 - Open cash drawer manually
+    if (e.key === "F7") {
+      e.preventDefault();
+      openCashDrawer();
+      return;
+    }
+
     // F6 - Toggle return mode
     if (e.key === "F6") {
       e.preventDefault();
@@ -230,14 +239,14 @@ export function useKeyboard(options: UseKeyboardOptions) {
     setCommand, setSelectedIndex, setError, setSuccess, setReturnMode,
     executeCommand, removeFromCart, clearCart, addTab, switchTab,
     handleQuickPay, finalizeSale, openPaymentModal,
-    openCustomerModal, openHistoryModal, openReprintModal, openHelpModal, openConfirmCancel,
+    openCustomerModal, openHistoryModal, openReprintModal, openHelpModal, openConfirmCancel, openCashDrawer,
     requireAdminAuth, handleReturn,
   ]);
 
   // Global F-key preventDefault (works even without input focus)
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (["F1", "F2", "F3", "F4", "F5"].includes(e.key)) {
+      if (["F1", "F2", "F3", "F4", "F5", "F7"].includes(e.key)) {
         e.preventDefault();
       }
     };

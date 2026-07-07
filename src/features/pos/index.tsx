@@ -216,6 +216,7 @@ export function PosPage() {
     openReprintModal: () => { api.getDailySales(getLocalDate()).then((sales) => { setReprintSales(sales.map((s) => ({ id: s.id, total: s.total, created_at: s.created_at, payment_method: s.payment_method }))); setShowReprintModal(true); }).catch(() => setError("Error cargando ventas")); },
     openHelpModal: () => setShowHelpModal(true),
     openConfirmCancel: () => setShowConfirmCancel(true),
+    openCashDrawer: () => { api.openCashDrawer().then(() => setSuccess("Cajón abierto")).catch((err) => setError(String(err))); },
     requireAdminAuth,
     handleReturn,
   });

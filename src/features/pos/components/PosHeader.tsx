@@ -67,6 +67,7 @@ export function PosHeader({
           <KeyBadge keyName="F4" label="Cancelar" />
           <KeyBadge keyName="F5" label="Cliente" />
           <KeyBadge keyName="F6" label="Devolución" />
+          <KeyBadge keyName="F7" label="Cajón" />
           <KeyBadge keyName="F8" label="Historial" />
           <KeyBadge keyName="F9" label="Reimprimir" />
           <KeyBadge keyName="F12" label="Ayuda" />
