@@ -28,6 +28,7 @@ import { HistoryModal } from "@/features/pos/modals/HistoryModal";
 import { CreditPayModal } from "@/features/pos/modals/CreditPayModal";
 import { ReprintModal } from "@/features/pos/modals/ReprintModal";
 import { CancelSaleModal } from "@/features/pos/modals/CancelSaleModal";
+import { PrintPromptModal } from "@/features/pos/modals/PrintPromptModal";
 
 export function PosPage() {
   const { user, logout } = useAuth();
@@ -60,6 +61,8 @@ export function PosPage() {
   const [showAdminAuthModal, setShowAdminAuthModal] = useState(false);
   const [showCancelSaleModal, setShowCancelSaleModal] = useState(false);
   const [cancelSaleId, setCancelSaleId] = useState<number | null>(null);
+  const [showPrintPrompt, setShowPrintPrompt] = useState(false);
+  const [printSaleId, setPrintSaleId] = useState<number | null>(null);
 
   // Modal data
   const [priceInfo, setPriceInfo] = useState<Product | null>(null);
@@ -106,6 +109,13 @@ export function PosPage() {
   const payment = usePayment({
     cart, customer, total, remaining, partialPayments,
     updateActiveTab, clearCart, showChange, setError, setSuccess, focusInput,
+    onSaleComplete: (saleId, hadCash) => {
+      // Open cash drawer immediately if cash payment
+      if (hadCash) api.openCashDrawer().catch(() => {});
+      // Show print prompt
+      setPrintSaleId(saleId);
+      setShowPrintPrompt(true);
+    },
   });
 
   // --- Admin auth ---
@@ -190,7 +200,7 @@ export function PosPage() {
   // --- Keyboard hook ---
   const anyModalOpen = payment.showPaymentModal || showCustomerModal || showPriceModal ||
     showSearchModal || showAmountModal || showCashCutModal || showDeliveryModal ||
-    showHistoryModal || showCreditPayModal || showReprintModal || showHelpModal || showAdminAuthModal || showCancelSaleModal;
+    showHistoryModal || showCreditPayModal || showReprintModal || showHelpModal || showAdminAuthModal || showCancelSaleModal || showPrintPrompt;
 
   const { handleKeyDown } = useKeyboard({
     cart, command, selectedIndex, returnMode, partialPayments, remaining, tabs, user, anyModalOpen,
@@ -398,6 +408,21 @@ export function PosPage() {
           focusInput();
         }}
         onClose={() => { setShowCancelSaleModal(false); setCancelSaleId(null); focusInput(); }}
+      />
+      <PrintPromptModal
+        show={showPrintPrompt}
+        saleId={printSaleId}
+        onPrint={(saleId) => {
+          api.printTicket(saleId).catch(() => {});
+          setShowPrintPrompt(false);
+          setPrintSaleId(null);
+          focusInput();
+        }}
+        onSkip={() => {
+          setShowPrintPrompt(false);
+          setPrintSaleId(null);
+          focusInput();
+        }}
       />
     </div>
   );

@@ -11,3 +11,4 @@ export { HistoryModal } from "./HistoryModal";
 export { CreditPayModal } from "./CreditPayModal";
 export { ReprintModal } from "./ReprintModal";
 export { CancelSaleModal } from "./CancelSaleModal";
+export { PrintPromptModal } from "./PrintPromptModal";

@@ -15,6 +15,7 @@ interface UsePaymentOptions {
   setError: (msg: string) => void;
   setSuccess: (msg: string) => void;
   focusInput: () => void;
+  onSaleComplete: (saleId: number, hadCash: boolean) => void;
 }
 
 export function usePayment(options: UsePaymentOptions) {
@@ -30,6 +31,7 @@ export function usePayment(options: UsePaymentOptions) {
     setError,
     setSuccess,
     focusInput,
+    onSaleComplete,
   } = options;
 
   // Payment modal state
@@ -70,11 +72,9 @@ export function usePayment(options: UsePaymentOptions) {
         showChange(result.change_amount);
       }
 
-      // Print ticket and open drawer (fire and forget)
-      api.printTicket(result.id).catch(() => {});
-      if (payments.some((p) => p.method === "efectivo")) {
-        api.openCashDrawer().catch(() => {});
-      }
+      // Notify orchestrator to handle print prompt and drawer
+      const hadCash = payments.some((p) => p.method === "efectivo");
+      onSaleComplete(result.id, hadCash);
 
       clearCart();
       setShowPaymentModal(false);
