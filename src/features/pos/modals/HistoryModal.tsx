@@ -31,8 +31,8 @@ export function HistoryModal({ show, sales, onCancelSale, onClose }: HistoryModa
         <div
           className="max-h-72 overflow-auto space-y-1"
           onKeyDown={(e) => {
-            if (e.key === "ArrowUp") { e.preventDefault(); setSelectedIndex((p) => (p <= 0 ? sales.length - 1 : p - 1)); }
-            else if (e.key === "ArrowDown") { e.preventDefault(); setSelectedIndex((p) => (p >= sales.length - 1 ? 0 : p + 1)); }
+            if (e.key === "ArrowUp") { e.preventDefault(); setSelectedIndex((p) => { const next = p <= 0 ? sales.length - 1 : p - 1; document.getElementById(`history-item-${next}`)?.scrollIntoView({ block: "nearest" }); return next; }); }
+            else if (e.key === "ArrowDown") { e.preventDefault(); setSelectedIndex((p) => { const next = p >= sales.length - 1 ? 0 : p + 1; document.getElementById(`history-item-${next}`)?.scrollIntoView({ block: "nearest" }); return next; }); }
             else if (e.key === "Enter") {
               e.preventDefault();
               const sale = sales[selectedIndex];
@@ -44,6 +44,7 @@ export function HistoryModal({ show, sales, onCancelSale, onClose }: HistoryModa
         >
           {sales.map((sale, i) => (
             <div
+              id={`history-item-${i}`}
               key={sale.id}
               className={`flex items-center justify-between px-3 py-2 rounded-md transition-colors ${
                 i === selectedIndex ? "bg-primary/20 border border-primary" : "hover:bg-accent"

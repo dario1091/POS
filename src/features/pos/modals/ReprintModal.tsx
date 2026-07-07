@@ -40,10 +40,18 @@ export function ReprintModal({ show, sales, onSuccess, onError, onClose }: Repri
           onKeyDown={(e) => {
             if (e.key === "ArrowUp") {
               e.preventDefault();
-              setSelectedIndex((prev) => (prev <= 0 ? sales.length - 1 : prev - 1));
+              setSelectedIndex((prev) => {
+                const next = prev <= 0 ? sales.length - 1 : prev - 1;
+                document.getElementById(`reprint-item-${next}`)?.scrollIntoView({ block: "nearest" });
+                return next;
+              });
             } else if (e.key === "ArrowDown") {
               e.preventDefault();
-              setSelectedIndex((prev) => (prev >= sales.length - 1 ? 0 : prev + 1));
+              setSelectedIndex((prev) => {
+                const next = prev >= sales.length - 1 ? 0 : prev + 1;
+                document.getElementById(`reprint-item-${next}`)?.scrollIntoView({ block: "nearest" });
+                return next;
+              });
             } else if (e.key === "Enter") {
               e.preventDefault();
               const sale = sales[selectedIndex];
@@ -55,6 +63,7 @@ export function ReprintModal({ show, sales, onSuccess, onError, onClose }: Repri
         >
           {sales.map((sale, i) => (
             <div
+              id={`reprint-item-${i}`}
               key={sale.id}
               onClick={() => handleReprint(sale.id)}
               className={`flex items-center justify-between px-3 py-2 rounded-md cursor-pointer transition-colors ${
