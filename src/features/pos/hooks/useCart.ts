@@ -18,7 +18,7 @@ const CART_STORAGE_KEY = "pos_cart_state";
 
 function loadPersistedState(): { tabs: SaleTab[]; activeTabId: number; nextTabId: number } | null {
   try {
-    const raw = sessionStorage.getItem(CART_STORAGE_KEY);
+    const raw = localStorage.getItem(CART_STORAGE_KEY);
     if (raw) return JSON.parse(raw);
   } catch {}
   return null;
@@ -26,7 +26,7 @@ function loadPersistedState(): { tabs: SaleTab[]; activeTabId: number; nextTabId
 
 function persistState(tabs: SaleTab[], activeTabId: number, nextTabId: number) {
   try {
-    sessionStorage.setItem(CART_STORAGE_KEY, JSON.stringify({ tabs, activeTabId, nextTabId }));
+    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify({ tabs, activeTabId, nextTabId }));
   } catch {}
 }
 
