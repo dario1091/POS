@@ -29,6 +29,7 @@ import { CreditPayModal } from "@/features/pos/modals/CreditPayModal";
 import { ReprintModal } from "@/features/pos/modals/ReprintModal";
 import { CancelSaleModal } from "@/features/pos/modals/CancelSaleModal";
 import { PrintPromptModal } from "@/features/pos/modals/PrintPromptModal";
+import { ConfirmCancelModal } from "@/features/pos/modals/ConfirmCancelModal";
 
 export function PosPage() {
   const { user, logout } = useAuth();
@@ -63,6 +64,7 @@ export function PosPage() {
   const [cancelSaleId, setCancelSaleId] = useState<number | null>(null);
   const [showPrintPrompt, setShowPrintPrompt] = useState(false);
   const [printSaleId, setPrintSaleId] = useState<number | null>(null);
+  const [showConfirmCancel, setShowConfirmCancel] = useState(false);
 
   // Modal data
   const [priceInfo, setPriceInfo] = useState<Product | null>(null);
@@ -200,7 +202,7 @@ export function PosPage() {
   // --- Keyboard hook ---
   const anyModalOpen = payment.showPaymentModal || showCustomerModal || showPriceModal ||
     showSearchModal || showAmountModal || showCashCutModal || showDeliveryModal ||
-    showHistoryModal || showCreditPayModal || showReprintModal || showHelpModal || showAdminAuthModal || showCancelSaleModal || showPrintPrompt;
+    showHistoryModal || showCreditPayModal || showReprintModal || showHelpModal || showAdminAuthModal || showCancelSaleModal || showPrintPrompt || showConfirmCancel;
 
   const { handleKeyDown } = useKeyboard({
     cart, command, selectedIndex, returnMode, partialPayments, remaining, tabs, user, anyModalOpen,
@@ -213,6 +215,7 @@ export function PosPage() {
     openHistoryModal: () => { api.getRecentSales(20).then((sales) => { setHistorySales(sales); setShowHistoryModal(true); }).catch(() => setError("Error cargando historial")); },
     openReprintModal: () => { api.getDailySales(getLocalDate()).then((sales) => { setReprintSales(sales.map((s) => ({ id: s.id, total: s.total, created_at: s.created_at, payment_method: s.payment_method }))); setShowReprintModal(true); }).catch(() => setError("Error cargando ventas")); },
     openHelpModal: () => setShowHelpModal(true),
+    openConfirmCancel: () => setShowConfirmCancel(true),
     requireAdminAuth,
     handleReturn,
   });
@@ -423,6 +426,16 @@ export function PosPage() {
           setPrintSaleId(null);
           focusInput();
         }}
+      />
+      <ConfirmCancelModal
+        show={showConfirmCancel}
+        onConfirm={() => {
+          clearCart();
+          setShowConfirmCancel(false);
+          setSuccess("Venta cancelada");
+          focusInput();
+        }}
+        onClose={() => { setShowConfirmCancel(false); focusInput(); }}
       />
     </div>
   );

@@ -33,6 +33,7 @@ interface UseKeyboardOptions {
   openHistoryModal: () => void;
   openReprintModal: () => void;
   openHelpModal: () => void;
+  openConfirmCancel: () => void;
   // Auth
   requireAdminAuth: (callback: () => void) => void;
   handleReturn: () => Promise<void>;
@@ -65,6 +66,7 @@ export function useKeyboard(options: UseKeyboardOptions) {
     openHistoryModal,
     openReprintModal,
     openHelpModal,
+    openConfirmCancel,
     requireAdminAuth,
     handleReturn,
   } = options;
@@ -149,10 +151,7 @@ export function useKeyboard(options: UseKeyboardOptions) {
     if (e.key === "F4") {
       e.preventDefault();
       if (cart.length > 0) {
-        if (confirm("¿Cancelar la venta actual? Se perderán todos los productos del carrito.")) {
-          clearCart();
-          setSuccess("Venta cancelada");
-        }
+        openConfirmCancel();
       }
       return;
     }
@@ -231,7 +230,7 @@ export function useKeyboard(options: UseKeyboardOptions) {
     setCommand, setSelectedIndex, setError, setSuccess, setReturnMode,
     executeCommand, removeFromCart, clearCart, addTab, switchTab,
     handleQuickPay, finalizeSale, openPaymentModal,
-    openCustomerModal, openHistoryModal, openReprintModal, openHelpModal,
+    openCustomerModal, openHistoryModal, openReprintModal, openHelpModal, openConfirmCancel,
     requireAdminAuth, handleReturn,
   ]);
 
