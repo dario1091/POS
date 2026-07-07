@@ -482,33 +482,52 @@ pub fn quick_cash_cut(state: State<'_, AppState>) -> Result<QuickCashCutResult, 
     let conn = state.db.get().map_err(|e| e.to_string())?;
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
 
+    // Get last cash cut time (if any today)
+    let last_cut_time: Option<String> = conn.query_row(
+        "SELECT created_at FROM cash_cuts WHERE date(created_at) = date('now', 'localtime') ORDER BY id DESC LIMIT 1",
+        [], |row| row.get(0),
+    ).ok();
+
+    // Build WHERE clause: since last cut OR since start of today
+    let time_filter = if let Some(ref cut_time) = last_cut_time {
+        format!("s.created_at > '{}'", cut_time)
+    } else {
+        "date(s.created_at) = date('now', 'localtime')".to_string()
+    };
+
+    let time_filter_simple = if let Some(ref cut_time) = last_cut_time {
+        format!("created_at > '{}'", cut_time)
+    } else {
+        "date(created_at) = date('now', 'localtime')".to_string()
+    };
+
     let (total_sales, transactions): (f64, i64) = conn.query_row(
-        "SELECT COALESCE(SUM(total), 0), COUNT(*) FROM sales WHERE date(created_at) = date('now', 'localtime') AND cancelled = 0",
+        &format!("SELECT COALESCE(SUM(total), 0), COUNT(*) FROM sales s WHERE {} AND cancelled = 0", time_filter),
         [], |row| Ok((row.get(0)?, row.get(1)?)),
     ).map_err(|e| e.to_string())?;
 
     let cash_total: f64 = conn.query_row(
-        "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE date(s.created_at) = date('now', 'localtime') AND sp.method = 'efectivo' AND s.cancelled = 0",
+        &format!("SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE {} AND sp.method = 'efectivo' AND s.cancelled = 0", time_filter),
         [], |row| row.get(0),
     ).unwrap_or(0.0);
 
     let card_total: f64 = conn.query_row(
-        "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE date(s.created_at) = date('now', 'localtime') AND sp.method = 'tarjeta' AND s.cancelled = 0",
+        &format!("SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE {} AND sp.method = 'tarjeta' AND s.cancelled = 0", time_filter),
         [], |row| row.get(0),
     ).unwrap_or(0.0);
 
     let transfer_total: f64 = conn.query_row(
-        "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE date(s.created_at) = date('now', 'localtime') AND sp.method = 'transferencia' AND s.cancelled = 0",
+        &format!("SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE {} AND sp.method = 'transferencia' AND s.cancelled = 0", time_filter),
         [], |row| row.get(0),
     ).unwrap_or(0.0);
 
     let credit_total: f64 = conn.query_row(
-        "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE date(s.created_at) = date('now', 'localtime') AND sp.method = 'credito' AND s.cancelled = 0",
+        &format!("SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE {} AND sp.method = 'credito' AND s.cancelled = 0", time_filter),
         [], |row| row.get(0),
     ).unwrap_or(0.0);
 
     let (deliveries_total, deliveries_count): (f64, i64) = conn.query_row(
-        "SELECT COALESCE(SUM(amount), 0), COUNT(*) FROM cash_deliveries WHERE date(created_at) = date('now', 'localtime')",
+        &format!("SELECT COALESCE(SUM(amount), 0), COUNT(*) FROM cash_deliveries WHERE {}", time_filter_simple),
         [], |row| Ok((row.get(0)?, row.get(1)?)),
     ).map_err(|e| e.to_string())?;
 

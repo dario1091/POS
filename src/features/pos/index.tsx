@@ -335,8 +335,10 @@ export function PosPage() {
         data={cashCutData}
         onPrint={() => {
           if (cashCutData) {
+            // Register the cash cut so next CC starts from this point
+            api.createCashCut(cashCutData.cash_in_register, "Cierre desde POS").catch(() => {});
             api.printCashCutReceipt({ totalSales: cashCutData.total_sales, transactions: cashCutData.transactions, cashTotal: cashCutData.cash_total, cardTotal: cashCutData.card_total, transferTotal: cashCutData.transfer_total, creditTotal: cashCutData.credit_total, deliveriesTotal: cashCutData.deliveries_total, deliveriesCount: cashCutData.deliveries_count, cashInRegister: cashCutData.cash_in_register })
-              .then(() => setSuccess("Cierre impreso")).catch((err) => setError(String(err)));
+              .then(() => setSuccess("Cierre registrado e impreso")).catch((err) => setError(String(err)));
           }
         }}
         onClose={() => { setShowCashCutModal(false); focusInput(); }}
