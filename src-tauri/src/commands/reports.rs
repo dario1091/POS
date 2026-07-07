@@ -506,10 +506,18 @@ pub fn quick_cash_cut(state: State<'_, AppState>) -> Result<QuickCashCutResult, 
         [], |row| Ok((row.get(0)?, row.get(1)?)),
     ).map_err(|e| e.to_string())?;
 
-    let cash_total: f64 = conn.query_row(
-        &format!("SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE {} AND sp.method = 'efectivo' AND s.cancelled = 0", time_filter),
+    // Cash in register: for pure cash sales = sale total; for mixed = cash portion from sale_payments
+    let pure_cash: f64 = conn.query_row(
+        &format!("SELECT COALESCE(SUM(s.total), 0) FROM sales s WHERE {} AND s.cancelled = 0 AND s.payment_method = 'efectivo'", time_filter),
         [], |row| row.get(0),
     ).unwrap_or(0.0);
+
+    let mixed_cash: f64 = conn.query_row(
+        &format!("SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE {} AND s.cancelled = 0 AND s.payment_method = 'mixto' AND sp.method = 'efectivo'", time_filter),
+        [], |row| row.get(0),
+    ).unwrap_or(0.0);
+
+    let cash_total = pure_cash + mixed_cash;
 
     let card_total: f64 = conn.query_row(
         &format!("SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE {} AND sp.method = 'tarjeta' AND s.cancelled = 0", time_filter),
