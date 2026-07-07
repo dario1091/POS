@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import type { Product, Customer, CartItem } from "@/lib/types";
 
 export interface SaleTab {
@@ -14,12 +14,34 @@ export interface PaymentEntry {
   reference?: string | null;
 }
 
+const CART_STORAGE_KEY = "pos_cart_state";
+
+function loadPersistedState(): { tabs: SaleTab[]; activeTabId: number; nextTabId: number } | null {
+  try {
+    const raw = sessionStorage.getItem(CART_STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return null;
+}
+
+function persistState(tabs: SaleTab[], activeTabId: number, nextTabId: number) {
+  try {
+    sessionStorage.setItem(CART_STORAGE_KEY, JSON.stringify({ tabs, activeTabId, nextTabId }));
+  } catch {}
+}
+
 export function useCart() {
-  const [tabs, setTabs] = useState<SaleTab[]>([{ id: 1, cart: [], customer: null, partialPayments: [] }]);
-  const [activeTabId, setActiveTabId] = useState(1);
-  const [nextTabId, setNextTabId] = useState(2);
+  const persisted = loadPersistedState();
+  const [tabs, setTabs] = useState<SaleTab[]>(persisted?.tabs ?? [{ id: 1, cart: [], customer: null, partialPayments: [] }]);
+  const [activeTabId, setActiveTabId] = useState(persisted?.activeTabId ?? 1);
+  const [nextTabId, setNextTabId] = useState(persisted?.nextTabId ?? 2);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [changeDisplay, setChangeDisplay] = useState<{ amount: number; visible: boolean }>({ amount: 0, visible: false });
+
+  // Persist cart state on every change
+  useEffect(() => {
+    persistState(tabs, activeTabId, nextTabId);
+  }, [tabs, activeTabId, nextTabId]);
 
   // Get current tab data
   const activeTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
