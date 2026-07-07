@@ -1,5 +1,6 @@
 @import "tailwindcss";
 
+/* Dark theme (default) */
 @theme {
   --color-background: #0a0a0a;
   --color-foreground: #fafafa;
@@ -24,6 +25,28 @@
   --radius-lg: 0.5rem;
 }
 
+/* Light theme override */
+.light {
+  --color-background: #ffffff;
+  --color-foreground: #0f172a;
+  --color-card: #f8fafc;
+  --color-card-foreground: #0f172a;
+  --color-primary: #2563eb;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #e2e8f0;
+  --color-secondary-foreground: #1e293b;
+  --color-muted: #f1f5f9;
+  --color-muted-foreground: #64748b;
+  --color-accent: #f1f5f9;
+  --color-accent-foreground: #0f172a;
+  --color-destructive: #dc2626;
+  --color-border: #e2e8f0;
+  --color-input: #f1f5f9;
+  --color-ring: #2563eb;
+  --color-success: #16a34a;
+  --color-warning: #d97706;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
@@ -32,10 +55,10 @@ body {
   font-family: system-ui, -apple-system, sans-serif;
 }
 
-/* Fix native select dropdown on Linux */
+/* Fix native select dropdown */
 select {
-  background-color: #1e293b;
-  color: #fafafa;
+  background-color: var(--color-input);
+  color: var(--color-foreground);
   -webkit-appearance: none;
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
@@ -44,8 +67,6 @@ select {
   padding-right: 28px;
 }
 
-select option {
-  background-color: #1e293b;
-  color: #fafafa;
-  padding: 8px;
+.light select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
 }

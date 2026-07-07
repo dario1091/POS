@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useTheme } from "@/hooks/useTheme";
 
 const adminOnlyItems = [
   { to: "/admin/dashboard", label: "Dashboard" },
@@ -19,6 +20,7 @@ const sharedItems = [
 
 export function AdminLayout() {
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const navItems = user?.role === "admin" ? [...adminOnlyItems, ...sharedItems] : sharedItems;
 
   return (
@@ -52,7 +54,13 @@ export function AdminLayout() {
             </NavLink>
           ))}
         </nav>
-        <div className="p-2 border-t border-border">
+        <div className="p-2 border-t border-border space-y-1">
+          <button
+            onClick={toggleTheme}
+            className="w-full px-3 py-2 rounded-md text-sm text-foreground hover:bg-accent transition-colors flex items-center justify-between"
+          >
+            <span>{theme === "dark" ? "☀️ Tema claro" : "🌙 Tema oscuro"}</span>
+          </button>
           <button
             onClick={logout}
             className="w-full px-3 py-2 rounded-md text-sm text-destructive hover:bg-accent transition-colors"

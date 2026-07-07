@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { useTheme } from "@/hooks/useTheme";
 import { LoginPage } from "@/routes/login";
 import { PosPage } from "@/routes/pos/index";
 import { AdminLayout } from "@/routes/admin/layout";
@@ -85,6 +86,7 @@ function AppRoutes() {
 }
 
 function App() {
+  useTheme(); // Initialize theme on app boot
   return (
     <BrowserRouter>
       <AuthProvider>
