@@ -15,6 +15,7 @@ const adminOnlyItems = [
 const sharedItems = [
   { to: "/admin/cashcut", label: "Corte de caja" },
   { to: "/admin/customers", label: "Clientes" },
+  { to: "/admin/labels", label: "Etiquetas" },
   { to: "/admin/hardware", label: "Hardware" },
 ];
 

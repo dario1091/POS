@@ -1,7 +1,7 @@
 use rusqlite::params;
 use tauri::State;
 
-use crate::hardware::printer::{Printer, TicketData, TicketItem, TicketPayment};
+use crate::hardware::printer::{LabelLine, Printer, TicketData, TicketItem, TicketPayment};
 use crate::hardware::scale;
 use crate::AppState;
 
@@ -324,4 +324,11 @@ pub fn print_cash_cut_receipt(
 
     let printer = Printer::new(&device_path);
     printer.print_cash_cut(&data)
+}
+
+#[tauri::command]
+pub fn print_label(lines: Vec<LabelLine>, copies: u32, state: State<'_, AppState>) -> Result<(), String> {
+    let device_path = get_printer_path(&state)?;
+    let printer = Printer::new(&device_path);
+    printer.print_label(&lines, copies)
 }

@@ -226,6 +226,66 @@ impl Printer {
         let cmd: [u8; 5] = [ESC, b'p', 0x00, 0x19, 0xFA];
         self.write_to_device(&cmd)
     }
+
+    /// Print a custom label with configurable lines
+    pub fn print_label(&self, lines: &[LabelLine], copies: u32) -> Result<(), String> {
+        let mut buffer = Vec::new();
+
+        for _ in 0..copies {
+            // Initialize printer
+            buffer.extend_from_slice(&[ESC, b'@']);
+
+            for line in lines {
+                // Set alignment
+                let align_byte = match line.alignment.as_str() {
+                    "center" => 1,
+                    "right" => 2,
+                    _ => 0, // left
+                };
+                buffer.extend_from_slice(&[ESC, b'a', align_byte]);
+
+                // Set bold
+                if line.bold {
+                    buffer.extend_from_slice(&[ESC, b'E', 1]);
+                }
+
+                // Set size
+                let size_byte = match line.size.as_str() {
+                    "small" => 0x00,        // Normal
+                    "normal" => 0x00,       // Normal
+                    "large" => 0x11,        // Double width + height
+                    "extra_large" => 0x22,  // Triple width + height (if supported)
+                    _ => 0x00,
+                };
+                buffer.extend_from_slice(&[GS, b'!', size_byte]);
+
+                // Print text
+                buffer.extend_from_slice(line.text.as_bytes());
+                buffer.push(LF);
+
+                // Reset size and bold
+                buffer.extend_from_slice(&[GS, b'!', 0x00]);
+                if line.bold {
+                    buffer.extend_from_slice(&[ESC, b'E', 0]);
+                }
+            }
+
+            // Feed and cut
+            buffer.extend_from_slice(&[LF, LF]);
+            buffer.extend_from_slice(&[GS, b'V', 0x00]);
+        }
+
+        self.write_to_device(&buffer)
+    }
+}
+
+/// Label line configuration
+#[derive(Debug, serde::Deserialize)]
+pub struct LabelLine {
+    pub text: String,
+    pub size: String,       // "small", "normal", "large", "extra_large"
+    pub alignment: String,  // "left", "center", "right"
+    pub bold: bool,
 }
 
 /// Ticket data structure

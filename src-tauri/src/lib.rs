@@ -177,6 +177,7 @@ pub fn run() {
             commands::hardware::list_printers,
             commands::hardware::print_delivery_receipt,
             commands::hardware::print_cash_cut_receipt,
+            commands::hardware::print_label,
             // Network
             commands::network::get_network_config,
             commands::network::set_network_config,

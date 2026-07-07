@@ -14,6 +14,7 @@ import { CustomersPage } from "@/routes/admin/customers";
 import { InventoryPage } from "@/routes/admin/inventory";
 import { HardwarePage } from "@/routes/admin/hardware";
 import { NetworkPage } from "@/routes/admin/network";
+import { LabelsPage } from "@/routes/admin/labels";
 import type { ReactNode } from "react";
 
 function ProtectedRoute({ children, adminOnly = false }: { children: ReactNode; adminOnly?: boolean }) {
@@ -78,6 +79,7 @@ function AppRoutes() {
         <Route path="users" element={<ProtectedRoute adminOnly><UsersPage /></ProtectedRoute>} />
         <Route path="inventory" element={<ProtectedRoute adminOnly><InventoryPage /></ProtectedRoute>} />
         <Route path="hardware" element={<HardwarePage />} />
+        <Route path="labels" element={<LabelsPage />} />
         <Route path="network" element={<ProtectedRoute adminOnly><NetworkPage /></ProtectedRoute>} />
       </Route>
       <Route path="*" element={<Navigate to="/pos" replace />} />

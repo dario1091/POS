@@ -144,6 +144,8 @@ export const api = {
     transferTotal: number; creditTotal: number; deliveriesTotal: number;
     deliveriesCount: number; cashInRegister: number;
   }) => invoke<void>("print_cash_cut_receipt", data),
+  printLabel: (lines: { text: string; size: string; alignment: string; bold: boolean }[], copies: number) =>
+    invoke<void>("print_label", { lines, copies }),
 
   // Returns
   createReturn: (items: { product_id: number; product_name: string; quantity: number; unit_price: number }[], reason: string | null) =>
