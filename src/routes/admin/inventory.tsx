@@ -88,7 +88,6 @@ export function InventoryPage() {
     }
 
     setBulkItems((prev) => [
-      ...prev,
       {
         product_id: product.id,
         barcode: code,
@@ -98,6 +97,7 @@ export function InventoryPage() {
         sale_price: product.sale_price,
         cost_price: product.cost_price,
       },
+      ...prev,
     ]);
   };
 
