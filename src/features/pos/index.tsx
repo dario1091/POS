@@ -27,6 +27,7 @@ import { DeliveryModal } from "@/features/pos/modals/DeliveryModal";
 import { HistoryModal } from "@/features/pos/modals/HistoryModal";
 import { CreditPayModal } from "@/features/pos/modals/CreditPayModal";
 import { ReprintModal } from "@/features/pos/modals/ReprintModal";
+import { CancelSaleModal } from "@/features/pos/modals/CancelSaleModal";
 
 export function PosPage() {
   const { user, logout } = useAuth();
@@ -57,6 +58,8 @@ export function PosPage() {
   const [showReprintModal, setShowReprintModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [showAdminAuthModal, setShowAdminAuthModal] = useState(false);
+  const [showCancelSaleModal, setShowCancelSaleModal] = useState(false);
+  const [cancelSaleId, setCancelSaleId] = useState<number | null>(null);
 
   // Modal data
   const [priceInfo, setPriceInfo] = useState<Product | null>(null);
@@ -171,6 +174,7 @@ export function PosPage() {
     openDelivery: (amount) => { if (amount) setDeliveryAmount(amount); setShowDeliveryModal(true); setTimeout(() => document.getElementById("delivery-amount")?.focus(), 50); },
     openSearch: (results) => { setSearchResults(results); setShowSearchModal(true); },
     openPriceCheck: (product) => { setPriceInfo(product); setShowPriceModal(true); },
+    openCancelSale: (saleId) => { setCancelSaleId(saleId); setShowCancelSaleModal(true); },
     requireAdminAuth,
   });
 
@@ -186,7 +190,7 @@ export function PosPage() {
   // --- Keyboard hook ---
   const anyModalOpen = payment.showPaymentModal || showCustomerModal || showPriceModal ||
     showSearchModal || showAmountModal || showCashCutModal || showDeliveryModal ||
-    showHistoryModal || showCreditPayModal || showReprintModal || showHelpModal || showAdminAuthModal;
+    showHistoryModal || showCreditPayModal || showReprintModal || showHelpModal || showAdminAuthModal || showCancelSaleModal;
 
   const { handleKeyDown } = useKeyboard({
     cart, command, selectedIndex, returnMode, partialPayments, remaining, tabs, user, anyModalOpen,
@@ -350,11 +354,10 @@ export function PosPage() {
         show={showHistoryModal}
         sales={historySales}
         onCancelSale={(saleId) => {
+          setShowHistoryModal(false);
           requireAdminAuth(() => {
-            const reason = prompt("Motivo de anulación:");
-            if (reason) {
-              api.cancelSale(saleId, reason).then((r) => { setSuccess(`✅ Venta #${r.sale_id} anulada.`); setShowHistoryModal(false); focusInput(); }).catch((err) => setError(String(err)));
-            }
+            setCancelSaleId(saleId);
+            setShowCancelSaleModal(true);
           });
         }}
         onClose={() => { setShowHistoryModal(false); focusInput(); }}
@@ -380,6 +383,19 @@ export function PosPage() {
         onPasswordChange={(v) => { setAdminPassword(v); setAdminAuthError(""); }}
         onConfirm={handleAdminAuth}
         onClose={() => { setShowAdminAuthModal(false); setAdminPassword(""); focusInput(); }}
+      />
+      <CancelSaleModal
+        show={showCancelSaleModal}
+        saleId={cancelSaleId}
+        onConfirm={(saleId, reason) => {
+          api.cancelSale(saleId, reason).then((r) => {
+            setSuccess(`✅ Venta #${r.sale_id} anulada. Stock restaurado (${r.items_restored} items). Total: $${r.total_restored.toFixed(2)}`);
+          }).catch((err) => setError(String(err)));
+          setShowCancelSaleModal(false);
+          setCancelSaleId(null);
+          focusInput();
+        }}
+        onClose={() => { setShowCancelSaleModal(false); setCancelSaleId(null); focusInput(); }}
       />
     </div>
   );

@@ -17,6 +17,7 @@ interface UseCommandsOptions {
   openDelivery: (amount?: string) => void;
   openSearch: (results: Product[]) => void;
   openPriceCheck: (product: Product) => void;
+  openCancelSale: (saleId: number) => void;
   requireAdminAuth: (callback: () => void) => void;
 }
 
@@ -31,6 +32,7 @@ export function useCommands(options: UseCommandsOptions) {
     openDelivery,
     openSearch,
     openPriceCheck,
+    openCancelSale,
     requireAdminAuth,
   } = options;
 
@@ -99,12 +101,7 @@ export function useCommands(options: UseCommandsOptions) {
       const saleId = parseInt(anMatch[1]);
       setCommand("");
       requireAdminAuth(() => {
-        const reason = prompt("Motivo de la anulación:");
-        if (reason) {
-          api.cancelSale(saleId, reason).then((result) => {
-            setSuccess(`✅ Venta #${result.sale_id} anulada. Stock restaurado (${result.items_restored} items). Total: $${result.total_restored.toFixed(2)}`);
-          }).catch((err) => setError(String(err)));
-        }
+        openCancelSale(saleId);
       });
       return;
     }
