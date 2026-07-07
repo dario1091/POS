@@ -209,20 +209,27 @@ pub fn get_cash_cut_summary(state: State<'_, AppState>) -> Result<CashCutSummary
     };
 
     let cash_sales: f64 = if let Some(ref cut_date) = last_cut_date {
-        conn.query_row(
-            "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp
-             JOIN sales s ON s.id = sp.sale_id
-             WHERE s.created_at > ?1 AND sp.method = 'efectivo' AND s.cancelled = 0",
-            params![cut_date],
-            |row| row.get(0),
-        ).unwrap_or(0.0)
+        // Pure cash sales
+        let pure: f64 = conn.query_row(
+            "SELECT COALESCE(SUM(total), 0) FROM sales WHERE created_at > ?1 AND cancelled = 0 AND payment_method = 'efectivo'",
+            params![cut_date], |row| row.get(0),
+        ).unwrap_or(0.0);
+        // Cash portion of mixed sales
+        let mixed: f64 = conn.query_row(
+            "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE s.created_at > ?1 AND s.cancelled = 0 AND s.payment_method = 'mixto' AND sp.method = 'efectivo'",
+            params![cut_date], |row| row.get(0),
+        ).unwrap_or(0.0);
+        pure + mixed
     } else {
-        conn.query_row(
-            "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp
-             JOIN sales s ON s.id = sp.sale_id WHERE sp.method = 'efectivo' AND s.cancelled = 0",
-            [],
-            |row| row.get(0),
-        ).unwrap_or(0.0)
+        let pure: f64 = conn.query_row(
+            "SELECT COALESCE(SUM(total), 0) FROM sales WHERE cancelled = 0 AND payment_method = 'efectivo'",
+            [], |row| row.get(0),
+        ).unwrap_or(0.0);
+        let mixed: f64 = conn.query_row(
+            "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE s.cancelled = 0 AND s.payment_method = 'mixto' AND sp.method = 'efectivo'",
+            [], |row| row.get(0),
+        ).unwrap_or(0.0);
+        pure + mixed
     };
 
     let card_sales: f64 = if let Some(ref cut_date) = last_cut_date {
@@ -362,12 +369,19 @@ fn get_cash_cut_summary_internal(conn: &rusqlite::Connection) -> Result<CashCutS
     };
 
     let cash_sales: f64 = if let Some(ref cut_date) = last_cut_date {
-        conn.query_row(
-            "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE s.created_at > ?1 AND sp.method = 'efectivo' AND s.cancelled = 0",
+        let pure: f64 = conn.query_row(
+            "SELECT COALESCE(SUM(total), 0) FROM sales WHERE created_at > ?1 AND cancelled = 0 AND payment_method = 'efectivo'",
             params![cut_date], |row| row.get(0),
-        ).unwrap_or(0.0)
+        ).unwrap_or(0.0);
+        let mixed: f64 = conn.query_row(
+            "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE s.created_at > ?1 AND s.cancelled = 0 AND s.payment_method = 'mixto' AND sp.method = 'efectivo'",
+            params![cut_date], |row| row.get(0),
+        ).unwrap_or(0.0);
+        pure + mixed
     } else {
-        conn.query_row("SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE sp.method = 'efectivo' AND s.cancelled = 0", [], |row| row.get(0)).unwrap_or(0.0)
+        let pure: f64 = conn.query_row("SELECT COALESCE(SUM(total), 0) FROM sales WHERE cancelled = 0 AND payment_method = 'efectivo'", [], |row| row.get(0)).unwrap_or(0.0);
+        let mixed: f64 = conn.query_row("SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE s.cancelled = 0 AND s.payment_method = 'mixto' AND sp.method = 'efectivo'", [], |row| row.get(0)).unwrap_or(0.0);
+        pure + mixed
     };
 
     let card_sales: f64 = if let Some(ref cut_date) = last_cut_date {
