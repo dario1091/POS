@@ -2,8 +2,20 @@ use rusqlite::params;
 use tauri::State;
 
 use crate::hardware::printer::{LabelLine, Printer, TicketData, TicketItem, TicketPayment};
+use crate::hardware::label_printer::{LabelPrinter, TsplLabelLine};
 use crate::hardware::scale;
 use crate::AppState;
+
+/// Get label printer device path from config
+fn get_label_printer_path(state: &State<'_, AppState>) -> Result<String, String> {
+    let conn = state.db.get().map_err(|e| e.to_string())?;
+    conn.query_row(
+        "SELECT value FROM config WHERE key = 'label_printer_device'",
+        [],
+        |row| row.get::<_, String>(0),
+    )
+    .map_err(|_| "Impresora de etiquetas no configurada. Ve a Admin > Configuración de hardware.".to_string())
+}
 
 /// Get printer device path from config
 fn get_printer_path(state: &State<'_, AppState>) -> Result<String, String> {
@@ -216,38 +228,41 @@ pub fn list_serial_ports() -> Result<Vec<String>, String> {
 }
 
 #[tauri::command]
-pub fn list_printers() -> Result<Vec<String>, String> {
-    let mut printers = Vec::new();
+pub fn list_printers() -> Result<Vec<serde_json::Value>, String> {
+    let usb_printers = crate::hardware::usb_printer::list_usb_printers();
+    let result: Vec<serde_json::Value> = usb_printers.iter().map(|p| serde_json::json!({
+        "path": p.device_key,
+        "label": p.label
+    })).collect();
+    Ok(result)
+}
 
-    // Check /dev/usb/lp* devices
-    if let Ok(entries) = std::fs::read_dir("/dev/usb") {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                if name.starts_with("lp") {
-                    printers.push(path.to_string_lossy().to_string());
-                }
-            }
-        }
+/// Try to read the USB printer manufacturer + product name from sysfs
+fn read_usb_printer_name(dev_path: &str) -> Option<String> {
+    // dev_path is like /dev/usb/lp0 → minor number maps to sysfs usblp0
+    let dev_name = std::path::Path::new(dev_path)
+        .file_name()?
+        .to_str()?
+        .to_string(); // e.g. "lp0"
+
+    // Walk /sys/class/usb/ to find matching device
+    let sysfs_class = format!("/sys/class/usbmisc/lp{}", &dev_name[2..]);
+    let device_link = format!("{}/device", sysfs_class);
+
+    // Read manufacturer and product
+    let manufacturer = std::fs::read_to_string(format!("{}/manufacturer", device_link))
+        .ok()
+        .map(|s| s.trim().to_string());
+    let product = std::fs::read_to_string(format!("{}/product", device_link))
+        .ok()
+        .map(|s| s.trim().to_string());
+
+    match (manufacturer, product) {
+        (Some(m), Some(p)) => Some(format!("{} — {} ({})", m, p, dev_path)),
+        (None, Some(p))    => Some(format!("{} ({})", p, dev_path)),
+        (Some(m), None)    => Some(format!("{} ({})", m, dev_path)),
+        _                  => None,
     }
-
-    // Also check /dev/lp* (some systems)
-    for i in 0..4 {
-        let path = format!("/dev/lp{}", i);
-        if std::path::Path::new(&path).exists() {
-            printers.push(path);
-        }
-    }
-
-    // Check common thermal printer paths
-    let common = ["/dev/ttyUSB0", "/dev/ttyUSB1", "/dev/ttyACM0"];
-    for path in &common {
-        if std::path::Path::new(path).exists() && !printers.contains(&path.to_string()) {
-            printers.push(path.to_string());
-        }
-    }
-
-    Ok(printers)
 }
 
 #[tauri::command]
@@ -327,8 +342,45 @@ pub fn print_cash_cut_receipt(
 }
 
 #[tauri::command]
-pub fn print_label(lines: Vec<LabelLine>, copies: u32, state: State<'_, AppState>) -> Result<(), String> {
-    let device_path = get_printer_path(&state)?;
-    let printer = Printer::new(&device_path);
-    printer.print_label(&lines, copies)
+pub fn print_label(lines: Vec<TsplLabelLine>, copies: u32, barcode: Option<String>, state: State<'_, AppState>) -> Result<(), String> {
+    let device_path = get_label_printer_path(&state)?;
+    let printer = LabelPrinter::new(&device_path);
+    printer.print_label(&lines, copies, barcode.as_deref())
+}
+
+#[tauri::command]
+pub fn configure_label_printer(device_path: String, state: State<'_, AppState>) -> Result<(), String> {
+    let conn = state.db.get().map_err(|e| e.to_string())?;
+    conn.execute(
+        "INSERT OR REPLACE INTO config (key, value) VALUES ('label_printer_device', ?1)",
+        params![device_path],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn calibrate_label_printer(state: State<'_, AppState>) -> Result<String, String> {
+    let device_key = get_label_printer_path(&state)?;
+    let parts: Vec<&str> = device_key.split(':').collect();
+    let vendor_id = u16::from_str_radix(parts.get(0).unwrap_or(&"0"), 16)
+        .map_err(|_| "Device key inválido".to_string())?;
+    let product_id = u16::from_str_radix(parts.get(1).unwrap_or(&"0"), 16)
+        .map_err(|_| "Device key inválido".to_string())?;
+
+    let cmd = b"AUTODETECT\r\nSAVE\r\n";
+    crate::hardware::usb_printer::write_to_usb_printer(vendor_id, product_id, cmd)?;
+    Ok("Calibración completada y guardada en la impresora".to_string())
+}
+
+#[tauri::command]
+pub fn test_label_printer(state: State<'_, AppState>) -> Result<String, String> {
+    let device_path = get_label_printer_path(&state)?;
+    let printer = LabelPrinter::new(&device_path);
+    printer.print_test()?;
+    Ok("Etiqueta de prueba impresa correctamente".to_string())
+}
+
+#[tauri::command]
+pub fn list_label_printers() -> Result<Vec<serde_json::Value>, String> {
+    list_printers()
 }

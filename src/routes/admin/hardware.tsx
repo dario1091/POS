@@ -3,8 +3,10 @@ import { api } from "@/lib/api";
 
 export function HardwarePage() {
   const [serialPorts, setSerialPorts] = useState<string[]>([]);
-  const [printers, setPrinters] = useState<string[]>([]);
+  const [printers, setPrinters] = useState<{ path: string; label: string }[]>([]);
   const [printerPath, setPrinterPath] = useState("");
+  const [labelPrinterPath, setLabelPrinterPath] = useState("");
+  const [labelPrinters, setLabelPrinters] = useState<{ path: string; label: string }[]>([]);
   const [scalePort, setScalePort] = useState("");
   const [scaleBaud, setScaleBaud] = useState("9600");
   const [businessName, setBusinessName] = useState("");
@@ -29,6 +31,7 @@ export function HardwarePage() {
     try {
       const data = await api.getHardwareConfig();
       setPrinterPath(data.printer_device || "");
+      setLabelPrinterPath(data.label_printer_device || "");
       setScalePort(data.scale_port || "");
       setScaleBaud(data.scale_baud || "9600");
       setBusinessName(data.business_name || "");
@@ -51,8 +54,10 @@ export function HardwarePage() {
     try {
       const devices = await api.listPrinters();
       setPrinters(devices);
+      setLabelPrinters(devices);
     } catch {
       setPrinters([]);
+      setLabelPrinters([]);
     }
   };
 
@@ -82,6 +87,37 @@ export function HardwarePage() {
     try {
       await api.openCashDrawer();
       setSuccess("Cajón abierto");
+    } catch (err) {
+      setError(String(err));
+    }
+  };
+
+  const saveLabelPrinter = async () => {
+    setError("");
+    try {
+      await api.configureLabelPrinter(labelPrinterPath);
+      setSuccess("Impresora de etiquetas configurada correctamente");
+      await loadConfig();
+    } catch (err) {
+      setError(String(err));
+    }
+  };
+
+  const handleTestLabelPrinter = async () => {
+    setError("");
+    try {
+      const msg = await api.testLabelPrinter();
+      setSuccess(msg);
+    } catch (err) {
+      setError(String(err));
+    }
+  };
+
+  const handleCalibrateLabelPrinter = async () => {
+    setError("");
+    try {
+      const msg = await api.calibrateLabelPrinter();
+      setSuccess(msg + " — La impresora avanzará algunas etiquetas durante la calibración.");
     } catch (err) {
       setError(String(err));
     }
@@ -163,7 +199,7 @@ export function HardwarePage() {
               >
                 <option value="">Seleccionar impresora</option>
                 {printers.map((p) => (
-                  <option key={p} value={p}>{p}</option>
+                  <option key={p.path} value={p.path}>{p.label}</option>
                 ))}
               </select>
               <button
@@ -202,6 +238,66 @@ export function HardwarePage() {
               className="px-4 py-2 rounded-md bg-secondary text-secondary-foreground text-sm font-medium hover:bg-secondary/80 transition-colors"
             >
               Abrir cajón
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* Label Printer */}
+      <section className="mb-8 p-4 rounded-lg bg-card border border-border">
+        <h2 className="text-lg font-semibold text-foreground mb-1">Impresora de Etiquetas</h2>
+        <p className="text-xs text-muted-foreground mb-3">Para impresoras TSPL/TSC (ej. 4BARCODE 4B-2054TG). Protocolo diferente al de tickets.</p>
+        <div className="space-y-3">
+          <div>
+            <label className="text-sm text-muted-foreground block mb-1">Dispositivo</label>
+            <div className="flex gap-2">
+              <select
+                value={labelPrinterPath}
+                onChange={(e) => setLabelPrinterPath(e.target.value)}
+                className="flex-1 px-3 py-2 rounded-md bg-input border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="">Seleccionar impresora de etiquetas</option>
+                {labelPrinters.map((p) => (
+                  <option key={p.path} value={p.path}>{p.label}</option>
+                ))}
+              </select>
+              <button
+                onClick={loadPrinters}
+                className="px-3 py-2 rounded-md bg-secondary text-secondary-foreground text-xs hover:bg-secondary/80 transition-colors"
+              >
+                Refrescar
+              </button>
+            </div>
+            {labelPrinters.length === 0 && (
+              <p className="text-xs text-muted-foreground mt-1">No se detectaron impresoras. Verifica que esté conectada por USB.</p>
+            )}
+            <input
+              type="text"
+              value={labelPrinterPath}
+              onChange={(e) => setLabelPrinterPath(e.target.value)}
+              placeholder="O escribe la ruta manualmente: /dev/usb/lp1"
+              className="w-full mt-2 px-3 py-2 rounded-md bg-input border border-border text-foreground text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={saveLabelPrinter}
+              className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+            >
+              Guardar
+            </button>
+            <button
+              onClick={handleTestLabelPrinter}
+              className="px-4 py-2 rounded-md bg-secondary text-secondary-foreground text-sm font-medium hover:bg-secondary/80 transition-colors"
+            >
+              Imprimir prueba
+            </button>
+            <button
+              onClick={handleCalibrateLabelPrinter}
+              className="px-4 py-2 rounded-md bg-secondary text-secondary-foreground text-sm font-medium hover:bg-secondary/80 transition-colors"
+              title="Calibra el sensor de etiquetas. Hazlo una sola vez al cambiar el rollo."
+            >
+              Calibrar
             </button>
           </div>
         </div>

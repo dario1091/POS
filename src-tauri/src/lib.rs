@@ -178,6 +178,10 @@ pub fn run() {
             commands::hardware::print_delivery_receipt,
             commands::hardware::print_cash_cut_receipt,
             commands::hardware::print_label,
+            commands::hardware::configure_label_printer,
+            commands::hardware::test_label_printer,
+            commands::hardware::calibrate_label_printer,
+            commands::hardware::list_label_printers,
             // Network
             commands::network::get_network_config,
             commands::network::set_network_config,

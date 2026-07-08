@@ -92,7 +92,7 @@ export const api = {
   configureBusiness: (name: string, address: string | null) => invoke<void>("configure_business", { name, address }),
   getHardwareConfig: () => invoke<Record<string, string>>("get_hardware_config"),
   listSerialPorts: () => invoke<string[]>("list_serial_ports"),
-  listPrinters: () => invoke<string[]>("list_printers"),
+  listPrinters: () => invoke<{ path: string; label: string }[]>("list_printers"),
 
   // Network
   getNetworkConfig: () => invoke<{ role: string; port: number; server_ip: string | null }>("get_network_config"),
@@ -144,8 +144,14 @@ export const api = {
     transferTotal: number; creditTotal: number; deliveriesTotal: number;
     deliveriesCount: number; cashInRegister: number;
   }) => invoke<void>("print_cash_cut_receipt", data),
-  printLabel: (lines: { text: string; size: string; alignment: string; bold: boolean }[], copies: number) =>
-    invoke<void>("print_label", { lines, copies }),
+  printLabel: (lines: { text: string; size: string; alignment: string; bold: boolean }[], copies: number, barcode?: string) =>
+    invoke<void>("print_label", { lines, copies, barcode: barcode ?? null }),
+
+  // Label printer (TSPL)
+  configureLabelPrinter: (devicePath: string) => invoke<void>("configure_label_printer", { devicePath }),
+  testLabelPrinter: () => invoke<string>("test_label_printer"),
+  calibrateLabelPrinter: () => invoke<string>("calibrate_label_printer"),
+  listLabelPrinters: () => invoke<{ path: string; label: string }[]>("list_label_printers"),
 
   // Returns
   createReturn: (items: { product_id: number; product_name: string; quantity: number; unit_price: number }[], reason: string | null) =>
