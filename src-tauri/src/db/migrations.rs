@@ -1,6 +1,11 @@
 use rusqlite::Connection;
 
-const MIGRATIONS: &[&str] = &[MIGRATION_001];
+const MIGRATIONS: &[&str] = &[MIGRATION_001, MIGRATION_002];
+
+// Legacy migration count: number of migrations that were previously in the array
+// before the consolidation. This offset ensures new migrations get IDs that don't
+// conflict with already-applied migrations in existing databases.
+const LEGACY_OFFSET: i64 = 11;
 
 const MIGRATION_001: &str = r#"
 -- ============================================================
@@ -236,6 +241,21 @@ INSERT INTO products (id, name, sale_price, cost_price, stock, unit, min_stock, 
 VALUES (6, 'Pescados', 0, 0, 9999, 'kg', 0, 'monto', 1);
 "#;
 
+const MIGRATION_002: &str = r#"
+-- Pagos a proveedores desde caja
+CREATE TABLE IF NOT EXISTS supplier_payments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    amount REAL NOT NULL,
+    supplier_name TEXT NOT NULL,
+    notes TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_supplier_payments_created_at ON supplier_payments(created_at);
+CREATE INDEX IF NOT EXISTS idx_supplier_payments_user_id ON supplier_payments(user_id);
+"#;
+
 pub fn run_migrations(conn: &Connection) -> Result<(), rusqlite::Error> {
     // Create migrations tracking table
     conn.execute_batch(
@@ -245,14 +265,17 @@ pub fn run_migrations(conn: &Connection) -> Result<(), rusqlite::Error> {
         );",
     )?;
 
-    // Check which migrations have been applied
-    let applied_count: i64 =
-        conn.query_row("SELECT COUNT(*) FROM _migrations", [], |row| row.get(0))?;
+    // Check the highest applied migration ID
+    let max_applied: i64 =
+        conn.query_row("SELECT COALESCE(MAX(id), 0) FROM _migrations", [], |row| row.get(0))?;
 
-    // Run pending migrations
+    // Run pending migrations.
+    // Migration IDs: MIGRATION_001 = 1, MIGRATION_002 = LEGACY_OFFSET + 1 (12), etc.
+    // This ensures new migrations don't conflict with legacy DBs that had multiple
+    // migrations consolidated into MIGRATION_001.
     for (i, migration) in MIGRATIONS.iter().enumerate() {
-        let migration_id = (i + 1) as i64;
-        if migration_id > applied_count {
+        let migration_id = if i == 0 { 1 } else { LEGACY_OFFSET + i as i64 };
+        if migration_id > max_applied {
             conn.execute_batch("BEGIN TRANSACTION;")?;
 
             match conn.execute_batch(migration) {

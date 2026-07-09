@@ -7,6 +7,7 @@ export { HelpModal } from "./HelpModal";
 export { AdminAuthModal } from "./AdminAuthModal";
 export { CashCutModal } from "./CashCutModal";
 export { DeliveryModal } from "./DeliveryModal";
+export { SupplierPaymentModal } from "./SupplierPaymentModal";
 export { HistoryModal } from "./HistoryModal";
 export { CreditPayModal } from "./CreditPayModal";
 export { ReprintModal } from "./ReprintModal";

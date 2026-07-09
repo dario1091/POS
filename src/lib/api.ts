@@ -130,10 +130,14 @@ export const api = {
   createCashDelivery: (amount: number, supervisorName: string | null, notes: string | null) =>
     invoke<{ id: number; amount: number; supervisor_name: string | null; created_at: string }>("create_cash_delivery", { amount, supervisorName, notes }),
   getTodayDeliveries: () => invoke<{ id: number; amount: number; supervisor_name: string | null; notes: string | null; created_at: string }[]>("get_today_deliveries"),
+  createSupplierPayment: (amount: number, supplierName: string, notes: string | null) =>
+    invoke<{ id: number; user_id: number; amount: number; supplier_name: string; notes: string | null; created_at: string }>("create_supplier_payment", { amount, supplierName, notes }),
   quickCashCut: () => invoke<{
     total_sales: number; transactions: number; cash_total: number; card_total: number;
     transfer_total: number; credit_total: number; deliveries_total: number;
-    deliveries_count: number; cash_in_register: number; date: string;
+    deliveries_count: number; supplier_payments_total: number; supplier_payments_count: number;
+    supplier_payments: { supplier_name: string; amount: number; created_at: string }[];
+    cash_in_register: number; date: string;
   }>("quick_cash_cut"),
 
   // Print receipts

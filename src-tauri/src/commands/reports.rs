@@ -417,6 +417,25 @@ pub struct CashDelivery {
     pub created_at: String,
 }
 
+// --- Supplier payments (pagos a proveedores) ---
+
+#[derive(Debug, Serialize)]
+pub struct SupplierPayment {
+    pub id: i64,
+    pub user_id: i64,
+    pub amount: f64,
+    pub supplier_name: String,
+    pub notes: Option<String>,
+    pub created_at: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SupplierPaymentSummary {
+    pub supplier_name: String,
+    pub amount: f64,
+    pub created_at: String,
+}
+
 #[derive(Debug, Serialize)]
 pub struct QuickCashCutResult {
     pub total_sales: f64,
@@ -427,6 +446,9 @@ pub struct QuickCashCutResult {
     pub credit_total: f64,
     pub deliveries_total: f64,
     pub deliveries_count: i64,
+    pub supplier_payments_total: f64,
+    pub supplier_payments_count: i64,
+    pub supplier_payments: Vec<SupplierPaymentSummary>,
     pub cash_in_register: f64,
     pub date: String,
 }
@@ -492,6 +514,49 @@ pub fn get_today_deliveries(state: State<'_, AppState>) -> Result<Vec<CashDelive
 }
 
 #[tauri::command]
+pub fn create_supplier_payment(
+    amount: f64,
+    supplier_name: String,
+    notes: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<SupplierPayment, String> {
+    if amount <= 0.0 {
+        return Err("El monto debe ser mayor a 0".to_string());
+    }
+    let trimmed = supplier_name.trim().to_string();
+    if trimmed.is_empty() {
+        return Err("El nombre del proveedor es obligatorio".to_string());
+    }
+
+    let conn = state.db.get().map_err(|e| e.to_string())?;
+
+    let current_user = state.current_user.lock().map_err(|e| e.to_string())?;
+    let user = current_user.as_ref().ok_or("No hay sesión activa")?;
+    let user_id = user.id;
+
+    conn.execute(
+        "INSERT INTO supplier_payments (user_id, amount, supplier_name, notes) VALUES (?1, ?2, ?3, ?4)",
+        params![user_id, amount, trimmed, notes],
+    )
+    .map_err(|e| e.to_string())?;
+
+    let id = conn.last_insert_rowid();
+    conn.query_row(
+        "SELECT id, user_id, amount, supplier_name, notes, created_at FROM supplier_payments WHERE id = ?1",
+        params![id],
+        |row| Ok(SupplierPayment {
+            id: row.get(0)?,
+            user_id: row.get(1)?,
+            amount: row.get(2)?,
+            supplier_name: row.get(3)?,
+            notes: row.get(4)?,
+            created_at: row.get(5)?,
+        }),
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn quick_cash_cut(state: State<'_, AppState>) -> Result<QuickCashCutResult, String> {
     let conn = state.db.get().map_err(|e| e.to_string())?;
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
@@ -553,7 +618,34 @@ pub fn quick_cash_cut(state: State<'_, AppState>) -> Result<QuickCashCutResult, 
         [], |row| Ok((row.get(0)?, row.get(1)?)),
     ).map_err(|e| e.to_string())?;
 
-    let cash_in_register = cash_total - deliveries_total;
+    let (supplier_payments_total, supplier_payments_count): (f64, i64) = conn.query_row(
+        &format!("SELECT COALESCE(SUM(amount), 0), COUNT(*) FROM supplier_payments WHERE {}", time_filter_simple),
+        [], |row| Ok((row.get(0)?, row.get(1)?)),
+    ).map_err(|e| e.to_string())?;
+
+    let supplier_payments: Vec<SupplierPaymentSummary> = {
+        let mut stmt = conn.prepare(
+            &format!(
+                "SELECT supplier_name, amount, created_at FROM supplier_payments WHERE {} ORDER BY created_at ASC",
+                time_filter_simple
+            ),
+        ).map_err(|e| e.to_string())?;
+
+        let results = stmt.query_map([], |row| {
+            Ok(SupplierPaymentSummary {
+                supplier_name: row.get(0)?,
+                amount: row.get(1)?,
+                created_at: row.get(2)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+        results
+    };
+
+    let cash_in_register = cash_total - deliveries_total - supplier_payments_total;
 
     Ok(QuickCashCutResult {
         total_sales,
@@ -564,6 +656,9 @@ pub fn quick_cash_cut(state: State<'_, AppState>) -> Result<QuickCashCutResult, 
         credit_total,
         deliveries_total,
         deliveries_count,
+        supplier_payments_total,
+        supplier_payments_count,
+        supplier_payments,
         cash_in_register,
         date: today,
     })

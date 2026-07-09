@@ -3,7 +3,9 @@ import { Modal } from "@/shared/ui/Modal";
 interface CashCutData {
   total_sales: number; transactions: number; cash_total: number; card_total: number;
   transfer_total: number; credit_total: number; deliveries_total: number;
-  deliveries_count: number; cash_in_register: number; date: string;
+  deliveries_count: number; supplier_payments_total: number; supplier_payments_count: number;
+  supplier_payments: { supplier_name: string; amount: number; created_at: string }[];
+  cash_in_register: number; date: string;
 }
 
 interface CashCutModalProps {
@@ -56,6 +58,20 @@ export function CashCutModal({ show, data, onPrint, onClose }: CashCutModalProps
               <span className="text-muted-foreground">Entregas parciales ({data.deliveries_count}):</span>
               <span className="font-mono text-warning">-${data.deliveries_total.toFixed(2)}</span>
             </div>
+          </div>
+        )}
+        {data.supplier_payments_count > 0 && (
+          <div className="border-t border-border pt-3 space-y-1">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Pagos a proveedores ({data.supplier_payments_count}):</span>
+              <span className="font-mono text-destructive">-${data.supplier_payments_total.toFixed(2)}</span>
+            </div>
+            {data.supplier_payments.map((sp, i) => (
+              <div key={i} className="flex justify-between text-xs pl-3">
+                <span className="text-muted-foreground">{sp.supplier_name}</span>
+                <span className="font-mono text-muted-foreground">${sp.amount.toFixed(2)}</span>
+              </div>
+            ))}
           </div>
         )}
         <div className="border-t border-border pt-3">

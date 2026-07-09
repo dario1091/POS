@@ -24,6 +24,7 @@ import { HelpModal } from "@/features/pos/modals/HelpModal";
 import { AdminAuthModal } from "@/features/pos/modals/AdminAuthModal";
 import { CashCutModal } from "@/features/pos/modals/CashCutModal";
 import { DeliveryModal } from "@/features/pos/modals/DeliveryModal";
+import { SupplierPaymentModal } from "@/features/pos/modals/SupplierPaymentModal";
 import { HistoryModal } from "@/features/pos/modals/HistoryModal";
 import { CreditPayModal } from "@/features/pos/modals/CreditPayModal";
 import { ReprintModal } from "@/features/pos/modals/ReprintModal";
@@ -55,6 +56,7 @@ export function PosPage() {
   const [showAmountModal, setShowAmountModal] = useState(false);
   const [showCashCutModal, setShowCashCutModal] = useState(false);
   const [showDeliveryModal, setShowDeliveryModal] = useState(false);
+  const [showSupplierPaymentModal, setShowSupplierPaymentModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showCreditPayModal, setShowCreditPayModal] = useState(false);
   const [showReprintModal, setShowReprintModal] = useState(false);
@@ -73,10 +75,14 @@ export function PosPage() {
   const [cashCutData, setCashCutData] = useState<{
     total_sales: number; transactions: number; cash_total: number; card_total: number;
     transfer_total: number; credit_total: number; deliveries_total: number;
-    deliveries_count: number; cash_in_register: number; date: string;
+    deliveries_count: number; supplier_payments_total: number; supplier_payments_count: number;
+    supplier_payments: { supplier_name: string; amount: number; created_at: string }[];
+    cash_in_register: number; date: string;
   } | null>(null);
   const [deliveryAmount, setDeliveryAmount] = useState("");
   const [deliverySupervisor, setDeliverySupervisor] = useState("");
+  const [supplierPaymentAmount, setSupplierPaymentAmount] = useState("");
+  const [supplierPaymentName, setSupplierPaymentName] = useState("");
   const [historySales, setHistorySales] = useState<{ id: number; total: number; payment_method: string; items_count: number; cancelled: boolean; created_at: string }[]>([]);
   const [reprintSales, setReprintSales] = useState<{ id: number; total: number; created_at: string; payment_method: string }[]>([]);
   const [customerSearch, setCustomerSearch] = useState("");
@@ -167,6 +173,21 @@ export function PosPage() {
     } catch (err) { setError(String(err)); }
   }, [deliveryAmount, deliverySupervisor, focusInput]);
 
+  // --- Supplier payment handler ---
+  const handleSupplierPayment = useCallback(async () => {
+    const amount = parseFloat(supplierPaymentAmount);
+    if (isNaN(amount) || amount <= 0) { setError("Ingresa un monto válido"); return; }
+    if (!supplierPaymentName.trim()) { setError("Ingresa el nombre del proveedor"); return; }
+    try {
+      await api.createSupplierPayment(amount, supplierPaymentName, null);
+      setSuccess(`✅ Pago de $${amount.toFixed(2)} a ${supplierPaymentName} registrado`);
+      setShowSupplierPaymentModal(false);
+      setSupplierPaymentAmount("");
+      setSupplierPaymentName("");
+      focusInput();
+    } catch (err) { setError(String(err)); }
+  }, [supplierPaymentAmount, supplierPaymentName, focusInput]);
+
   // --- addToCart wrapper for "monto" products ---
   const addToCartWithAmountCheck = useCallback((product: Product, quantity: number, customPrice?: number) => {
     if (product.price_type === "monto" && !customPrice) {
@@ -184,6 +205,7 @@ export function PosPage() {
     openCashCut: (data) => { setCashCutData(data); setShowCashCutModal(true); },
     openCreditPay: () => { setShowCreditPayModal(true); setTimeout(() => document.getElementById("credit-pay-search")?.focus(), 50); },
     openDelivery: (amount) => { if (amount) setDeliveryAmount(amount); setShowDeliveryModal(true); setTimeout(() => document.getElementById("delivery-amount")?.focus(), 50); },
+    openSupplierPayment: (amount) => { if (amount) setSupplierPaymentAmount(amount); setShowSupplierPaymentModal(true); setTimeout(() => document.getElementById("supplier-payment-amount")?.focus(), 50); },
     openSearch: (results) => { setSearchResults(results); setShowSearchModal(true); },
     openPriceCheck: (product) => { setPriceInfo(product); setShowPriceModal(true); },
     openCancelSale: (saleId) => { setCancelSaleId(saleId); setShowCancelSaleModal(true); },
@@ -202,7 +224,8 @@ export function PosPage() {
   // --- Keyboard hook ---
   const anyModalOpen = payment.showPaymentModal || showCustomerModal || showPriceModal ||
     showSearchModal || showAmountModal || showCashCutModal || showDeliveryModal ||
-    showHistoryModal || showCreditPayModal || showReprintModal || showHelpModal || showAdminAuthModal || showCancelSaleModal || showPrintPrompt || showConfirmCancel;
+    showSupplierPaymentModal || showHistoryModal || showCreditPayModal || showReprintModal ||
+    showHelpModal || showAdminAuthModal || showCancelSaleModal || showPrintPrompt || showConfirmCancel;
 
   const { handleKeyDown } = useKeyboard({
     cart, command, selectedIndex, returnMode, partialPayments, remaining, tabs, user, anyModalOpen,
@@ -365,6 +388,15 @@ export function PosPage() {
         onSupervisorChange={setDeliverySupervisor}
         onConfirm={handleDelivery}
         onClose={() => { setShowDeliveryModal(false); setDeliveryAmount(""); setDeliverySupervisor(""); focusInput(); }}
+      />
+      <SupplierPaymentModal
+        show={showSupplierPaymentModal}
+        amount={supplierPaymentAmount}
+        supplierName={supplierPaymentName}
+        onAmountChange={setSupplierPaymentAmount}
+        onSupplierNameChange={setSupplierPaymentName}
+        onConfirm={handleSupplierPayment}
+        onClose={() => { setShowSupplierPaymentModal(false); setSupplierPaymentAmount(""); setSupplierPaymentName(""); focusInput(); }}
       />
       <HistoryModal
         show={showHistoryModal}

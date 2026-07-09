@@ -11,10 +11,13 @@ interface UseCommandsOptions {
   openCashCut: (data: {
     total_sales: number; transactions: number; cash_total: number; card_total: number;
     transfer_total: number; credit_total: number; deliveries_total: number;
-    deliveries_count: number; cash_in_register: number; date: string;
+    deliveries_count: number; supplier_payments_total: number; supplier_payments_count: number;
+    supplier_payments: { supplier_name: string; amount: number; created_at: string }[];
+    cash_in_register: number; date: string;
   }) => void;
   openCreditPay: () => void;
   openDelivery: (amount?: string) => void;
+  openSupplierPayment: (amount?: string) => void;
   openSearch: (results: Product[]) => void;
   openPriceCheck: (product: Product) => void;
   openCancelSale: (saleId: number) => void;
@@ -30,6 +33,7 @@ export function useCommands(options: UseCommandsOptions) {
     openCashCut,
     openCreditPay,
     openDelivery,
+    openSupplierPayment,
     openSearch,
     openPriceCheck,
     openCancelSale,
@@ -114,6 +118,14 @@ export function useCommands(options: UseCommandsOptions) {
       return;
     }
 
+    // PP or PP{monto} — Pago a proveedor
+    const ppMatch = trimmed.match(/^pp(\d+)?$/i);
+    if (ppMatch) {
+      setCommand("");
+      openSupplierPayment(ppMatch[1] || undefined);
+      return;
+    }
+
     // pv nombre — search by name (pv followed by space and text)
     const nameSearch = trimmed.match(/^pv\s+(.+)$/i);
     if (nameSearch) {
@@ -159,7 +171,7 @@ export function useCommands(options: UseCommandsOptions) {
     // Direct code/reference
     await addProductByCode(trimmed, 1);
     setCommand("");
-  }, [addToCart, setError, setSuccess, setCommand, openCashCut, openCreditPay, openDelivery, openSearch, openPriceCheck, requireAdminAuth, addProductByCode]);
+  }, [addToCart, setError, setSuccess, setCommand, openCashCut, openCreditPay, openDelivery, openSupplierPayment, openSearch, openPriceCheck, requireAdminAuth, addProductByCode]);
 
   return { executeCommand, addProductByCode };
 }

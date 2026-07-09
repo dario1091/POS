@@ -68,6 +68,8 @@ export function HelpModal({ show, onClose }: HelpModalProps) {
             <p><span className="text-foreground font-mono">CC</span> — Cierre de caja (desde último corte)</p>
             <p><span className="text-foreground font-mono">EP</span> — Entrega parcial de efectivo</p>
             <p><span className="text-foreground font-mono">EP5000</span> — Entrega de $5000 (monto directo)</p>
+            <p><span className="text-foreground font-mono">PP</span> — Pago a proveedor</p>
+            <p><span className="text-foreground font-mono">PP5000</span> — Pago a proveedor de $5000 (monto directo)</p>
             <p><span className="text-foreground font-mono">AB</span> — Abono a crédito de cliente</p>
             <p><span className="text-foreground font-mono">AN5</span> — Anular venta #5</p>
           </div>
