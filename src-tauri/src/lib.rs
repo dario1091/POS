@@ -198,6 +198,7 @@ pub fn run() {
             commands::reports::get_today_deliveries,
             commands::reports::create_supplier_payment,
             commands::reports::quick_cash_cut,
+            commands::reports::get_cash_cut_by_date,
             commands::reports::create_return,
             commands::reports::create_credit_payment,
             commands::reports::cancel_sale,

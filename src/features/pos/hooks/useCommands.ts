@@ -14,7 +14,7 @@ interface UseCommandsOptions {
     deliveries_count: number; supplier_payments_total: number; supplier_payments_count: number;
     supplier_payments: { supplier_name: string; amount: number; created_at: string }[];
     cash_in_register: number; date: string;
-  }) => void;
+  }, mode: "preview" | "reprint") => void;
   openCreditPay: () => void;
   openDelivery: (amount?: string) => void;
   openSupplierPayment: (amount?: string) => void;
@@ -85,7 +85,21 @@ export function useCommands(options: UseCommandsOptions) {
       setCommand("");
       try {
         const data = await api.quickCashCut();
-        openCashCut(data);
+        openCashCut(data, "preview");
+      } catch (err) {
+        setError(String(err));
+      }
+      return;
+    }
+
+    // CX{fecha} — Reimprimir ticket de cierre de caja de una fecha específica
+    const cxMatch = trimmed.match(/^cx(\d{4}-\d{2}-\d{2})$/i);
+    if (cxMatch) {
+      const date = cxMatch[1];
+      setCommand("");
+      try {
+        const data = await api.getCashCutByDate(date);
+        openCashCut(data, "reprint");
       } catch (err) {
         setError(String(err));
       }

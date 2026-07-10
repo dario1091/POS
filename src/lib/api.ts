@@ -115,15 +115,28 @@ export const api = {
   }[]>("get_sales_by_category", { from, to }),
   getCashCutSummary: () => invoke<{
     total_sales: number; cash_sales: number; card_sales: number;
-    transfer_sales: number; transactions: number; last_cut_date: string | null;
+    transfer_sales: number; credit_sales: number; transactions: number;
+    last_cut_date: string | null;
+    deliveries_total: number; deliveries_count: number;
+    supplier_payments_total: number; supplier_payments_count: number;
+    supplier_payments: { supplier_name: string; amount: number; created_at: string }[];
+    cash_in_register: number;
   }>("get_cash_cut_summary"),
   createCashCut: (actualCash: number, notes: string | null) => invoke<{
     id: number; user_id: number; expected_cash: number; actual_cash: number;
     difference: number; notes: string | null; created_at: string;
+    total_sales: number; cash_sales: number; card_sales: number;
+    transfer_sales: number; credit_sales: number; transactions: number;
+    deliveries_total: number; deliveries_count: number;
+    supplier_payments_total: number; supplier_payments_count: number;
   }>("create_cash_cut", { actualCash, notes }),
   getCashCuts: (from: string, to: string) => invoke<{
     id: number; user_id: number; expected_cash: number; actual_cash: number;
     difference: number; notes: string | null; created_at: string;
+    total_sales: number; cash_sales: number; card_sales: number;
+    transfer_sales: number; credit_sales: number; transactions: number;
+    deliveries_total: number; deliveries_count: number;
+    supplier_payments_total: number; supplier_payments_count: number;
   }[]>("get_cash_cuts", { from, to }),
 
   // Cash deliveries & quick cut
@@ -139,6 +152,13 @@ export const api = {
     supplier_payments: { supplier_name: string; amount: number; created_at: string }[];
     cash_in_register: number; date: string;
   }>("quick_cash_cut"),
+  getCashCutByDate: (date: string) => invoke<{
+    total_sales: number; transactions: number; cash_total: number; card_total: number;
+    transfer_total: number; credit_total: number; deliveries_total: number;
+    deliveries_count: number; supplier_payments_total: number; supplier_payments_count: number;
+    supplier_payments: { supplier_name: string; amount: number; created_at: string }[];
+    cash_in_register: number; date: string;
+  }>("get_cash_cut_by_date", { date }),
 
   // Print receipts
   printDeliveryReceipt: (amount: number, supervisorName: string, deliveryId: number) =>

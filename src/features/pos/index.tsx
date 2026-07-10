@@ -55,6 +55,7 @@ export function PosPage() {
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [showAmountModal, setShowAmountModal] = useState(false);
   const [showCashCutModal, setShowCashCutModal] = useState(false);
+  const [cashCutMode, setCashCutMode] = useState<"preview" | "reprint">("preview");
   const [showDeliveryModal, setShowDeliveryModal] = useState(false);
   const [showSupplierPaymentModal, setShowSupplierPaymentModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -202,7 +203,7 @@ export function PosPage() {
   // --- Commands hook ---
   const { executeCommand } = useCommands({
     addToCart: addToCartWithAmountCheck, setError, setSuccess, setCommand,
-    openCashCut: (data) => { setCashCutData(data); setShowCashCutModal(true); },
+    openCashCut: (data, mode) => { setCashCutData(data); setCashCutMode(mode); setShowCashCutModal(true); },
     openCreditPay: () => { setShowCreditPayModal(true); setTimeout(() => document.getElementById("credit-pay-search")?.focus(), 50); },
     openDelivery: (amount) => { if (amount) setDeliveryAmount(amount); setShowDeliveryModal(true); setTimeout(() => document.getElementById("delivery-amount")?.focus(), 50); },
     openSupplierPayment: (amount) => { if (amount) setSupplierPaymentAmount(amount); setShowSupplierPaymentModal(true); setTimeout(() => document.getElementById("supplier-payment-amount")?.focus(), 50); },
@@ -370,12 +371,26 @@ export function PosPage() {
       <CashCutModal
         show={showCashCutModal}
         data={cashCutData}
-        onPrint={() => {
+        mode={cashCutMode}
+        onConfirm={() => {
           if (cashCutData) {
-            // Register the cash cut so next CC starts from this point
-            api.createCashCut(cashCutData.cash_in_register, "Cierre desde POS").catch(() => {});
-            api.printCashCutReceipt({ totalSales: cashCutData.total_sales, transactions: cashCutData.transactions, cashTotal: cashCutData.cash_total, cardTotal: cashCutData.card_total, transferTotal: cashCutData.transfer_total, creditTotal: cashCutData.credit_total, deliveriesTotal: cashCutData.deliveries_total, deliveriesCount: cashCutData.deliveries_count, cashInRegister: cashCutData.cash_in_register })
-              .then(() => setSuccess("Cierre registrado e impreso")).catch((err) => setError(String(err)));
+            if (cashCutMode === "preview") {
+              // Register the cash cut and then print
+              api.createCashCut(cashCutData.cash_in_register, "Cierre desde POS")
+                .then(() => {
+                  api.printCashCutReceipt({ totalSales: cashCutData.total_sales, transactions: cashCutData.transactions, cashTotal: cashCutData.cash_total, cardTotal: cashCutData.card_total, transferTotal: cashCutData.transfer_total, creditTotal: cashCutData.credit_total, deliveriesTotal: cashCutData.deliveries_total, deliveriesCount: cashCutData.deliveries_count, cashInRegister: cashCutData.cash_in_register })
+                    .then(() => setSuccess("Corte registrado e impreso ✅"))
+                    .catch((err) => setSuccess(`Corte registrado. Error al imprimir: ${err}`));
+                })
+                .catch((err) => setError(String(err)));
+            } else {
+              // Reprint only (CX) — already registered
+              api.printCashCutReceipt({ totalSales: cashCutData.total_sales, transactions: cashCutData.transactions, cashTotal: cashCutData.cash_total, cardTotal: cashCutData.card_total, transferTotal: cashCutData.transfer_total, creditTotal: cashCutData.credit_total, deliveriesTotal: cashCutData.deliveries_total, deliveriesCount: cashCutData.deliveries_count, cashInRegister: cashCutData.cash_in_register })
+                .then(() => setSuccess("Ticket reimpreso"))
+                .catch((err) => setError(String(err)));
+            }
+            setShowCashCutModal(false);
+            focusInput();
           }
         }}
         onClose={() => { setShowCashCutModal(false); focusInput(); }}

@@ -6,7 +6,12 @@ export function CashCutPage() {
   const today = getLocalDate();
   const [summary, setSummary] = useState<{
     total_sales: number; cash_sales: number; card_sales: number;
-    transfer_sales: number; transactions: number; last_cut_date: string | null;
+    transfer_sales: number; credit_sales: number; transactions: number;
+    last_cut_date: string | null;
+    deliveries_total: number; deliveries_count: number;
+    supplier_payments_total: number; supplier_payments_count: number;
+    supplier_payments: { supplier_name: string; amount: number; created_at: string }[];
+    cash_in_register: number;
   } | null>(null);
   const [actualCash, setActualCash] = useState("");
   const [notes, setNotes] = useState("");
@@ -75,13 +80,14 @@ export function CashCutPage() {
               : "Desde el inicio (sin cortes previos)"}
           </p>
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {/* Sales breakdown */}
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
             <div>
               <p className="text-xs text-muted-foreground">Total ventas</p>
               <p className="text-xl font-bold font-mono text-foreground">${summary.total_sales.toFixed(2)}</p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Efectivo esperado</p>
+              <p className="text-xs text-muted-foreground">Efectivo cobrado</p>
               <p className="text-xl font-bold font-mono text-success">${summary.cash_sales.toFixed(2)}</p>
             </div>
             <div>
@@ -91,6 +97,64 @@ export function CashCutPage() {
             <div>
               <p className="text-xs text-muted-foreground">Transferencia</p>
               <p className="text-xl font-bold font-mono text-warning">${summary.transfer_sales.toFixed(2)}</p>
+            </div>
+            {summary.credit_sales > 0 && (
+              <div>
+                <p className="text-xs text-muted-foreground">Crédito (fiado)</p>
+                <p className="text-xl font-bold font-mono text-destructive">${summary.credit_sales.toFixed(2)}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Cash outflows */}
+          {(summary.deliveries_count > 0 || summary.supplier_payments_count > 0) && (
+            <div className="border-t border-border pt-4 mb-4">
+              <h3 className="text-sm font-medium text-foreground mb-3">Salidas de efectivo</h3>
+              <div className="space-y-2">
+                {summary.deliveries_count > 0 && (
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">
+                      Entregas parciales ({summary.deliveries_count})
+                    </span>
+                    <span className="font-mono text-warning font-medium">
+                      -${summary.deliveries_total.toFixed(2)}
+                    </span>
+                  </div>
+                )}
+                {summary.supplier_payments_count > 0 && (
+                  <div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-muted-foreground">
+                        Pagos a proveedores ({summary.supplier_payments_count})
+                      </span>
+                      <span className="font-mono text-destructive font-medium">
+                        -${summary.supplier_payments_total.toFixed(2)}
+                      </span>
+                    </div>
+                    {summary.supplier_payments.map((sp, i) => (
+                      <div key={i} className="flex justify-between text-xs pl-4 mt-1">
+                        <span className="text-muted-foreground">{sp.supplier_name}</span>
+                        <span className="font-mono text-muted-foreground">${sp.amount.toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Net cash expected */}
+          <div className="border-t border-border pt-4 mb-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-sm font-medium text-foreground">Efectivo esperado en caja</p>
+                <p className="text-xs text-muted-foreground">
+                  Efectivo cobrado − entregas − pagos proveedores
+                </p>
+              </div>
+              <p className="text-2xl font-bold font-mono text-success">
+                ${summary.cash_in_register.toFixed(2)}
+              </p>
             </div>
           </div>
 
@@ -128,13 +192,13 @@ export function CashCutPage() {
             </div>
             {actualCash && summary && (
               <p className={`text-sm mt-2 font-medium ${
-                parseFloat(actualCash) === summary.cash_sales ? "text-success" :
-                parseFloat(actualCash) > summary.cash_sales ? "text-warning" : "text-destructive"
+                parseFloat(actualCash) === summary.cash_in_register ? "text-success" :
+                parseFloat(actualCash) > summary.cash_in_register ? "text-warning" : "text-destructive"
               }`}>
-                {parseFloat(actualCash) === summary.cash_sales ? "✅ Cuadra perfecto" :
-                 parseFloat(actualCash) > summary.cash_sales
-                  ? `Sobrante: $${(parseFloat(actualCash) - summary.cash_sales).toFixed(2)}`
-                  : `Faltante: $${(summary.cash_sales - parseFloat(actualCash)).toFixed(2)}`
+                {parseFloat(actualCash) === summary.cash_in_register ? "✅ Cuadra perfecto" :
+                 parseFloat(actualCash) > summary.cash_in_register
+                  ? `Sobrante: $${(parseFloat(actualCash) - summary.cash_in_register).toFixed(2)}`
+                  : `Faltante: $${(summary.cash_in_register - parseFloat(actualCash)).toFixed(2)}`
                 }
               </p>
             )}

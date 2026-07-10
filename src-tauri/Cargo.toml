@@ -1,6 +1,6 @@
 [package]
 name = "pos-system"
-version = "0.5.9"
+version = "0.6.0"
 description = "Sistema de Punto de Venta"
 authors = ["Jose Paez"]
 edition = "2021"

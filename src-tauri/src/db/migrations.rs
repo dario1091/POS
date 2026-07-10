@@ -1,6 +1,6 @@
 use rusqlite::Connection;
 
-const MIGRATIONS: &[&str] = &[MIGRATION_001, MIGRATION_002];
+const MIGRATIONS: &[&str] = &[MIGRATION_001, MIGRATION_002, MIGRATION_003];
 
 // Legacy migration count: number of migrations that were previously in the array
 // before the consolidation. This offset ensures new migrations get IDs that don't
@@ -254,6 +254,20 @@ CREATE TABLE IF NOT EXISTS supplier_payments (
 
 CREATE INDEX IF NOT EXISTS idx_supplier_payments_created_at ON supplier_payments(created_at);
 CREATE INDEX IF NOT EXISTS idx_supplier_payments_user_id ON supplier_payments(user_id);
+"#;
+
+const MIGRATION_003: &str = r#"
+-- Snapshot completo del corte de caja
+ALTER TABLE cash_cuts ADD COLUMN total_sales REAL NOT NULL DEFAULT 0;
+ALTER TABLE cash_cuts ADD COLUMN cash_sales REAL NOT NULL DEFAULT 0;
+ALTER TABLE cash_cuts ADD COLUMN card_sales REAL NOT NULL DEFAULT 0;
+ALTER TABLE cash_cuts ADD COLUMN transfer_sales REAL NOT NULL DEFAULT 0;
+ALTER TABLE cash_cuts ADD COLUMN credit_sales REAL NOT NULL DEFAULT 0;
+ALTER TABLE cash_cuts ADD COLUMN transactions INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE cash_cuts ADD COLUMN deliveries_total REAL NOT NULL DEFAULT 0;
+ALTER TABLE cash_cuts ADD COLUMN deliveries_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE cash_cuts ADD COLUMN supplier_payments_total REAL NOT NULL DEFAULT 0;
+ALTER TABLE cash_cuts ADD COLUMN supplier_payments_count INTEGER NOT NULL DEFAULT 0;
 "#;
 
 pub fn run_migrations(conn: &Connection) -> Result<(), rusqlite::Error> {

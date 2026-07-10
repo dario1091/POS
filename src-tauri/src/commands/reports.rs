@@ -36,8 +36,15 @@ pub struct CashCutSummary {
     pub cash_sales: f64,
     pub card_sales: f64,
     pub transfer_sales: f64,
+    pub credit_sales: f64,
     pub transactions: i64,
     pub last_cut_date: Option<String>,
+    pub deliveries_total: f64,
+    pub deliveries_count: i64,
+    pub supplier_payments_total: f64,
+    pub supplier_payments_count: i64,
+    pub supplier_payments: Vec<SupplierPaymentSummary>,
+    pub cash_in_register: f64,
 }
 
 #[derive(Debug, Serialize)]
@@ -49,6 +56,17 @@ pub struct CashCut {
     pub difference: f64,
     pub notes: Option<String>,
     pub created_at: String,
+    // Snapshot fields
+    pub total_sales: f64,
+    pub cash_sales: f64,
+    pub card_sales: f64,
+    pub transfer_sales: f64,
+    pub credit_sales: f64,
+    pub transactions: i64,
+    pub deliveries_total: f64,
+    pub deliveries_count: i64,
+    pub supplier_payments_total: f64,
+    pub supplier_payments_count: i64,
 }
 
 #[tauri::command]
@@ -181,99 +199,7 @@ pub fn get_top_products(from: String, to: String, limit: i64, state: State<'_, A
 #[tauri::command]
 pub fn get_cash_cut_summary(state: State<'_, AppState>) -> Result<CashCutSummary, String> {
     let conn = state.db.get().map_err(|e| e.to_string())?;
-
-    // Get last cut date
-    let last_cut_date: Option<String> = conn
-        .query_row(
-            "SELECT created_at FROM cash_cuts ORDER BY id DESC LIMIT 1",
-            [],
-            |row| row.get(0),
-        )
-        .ok();
-
-    // Get sales since last cut (or all sales if no cuts yet)
-    let (total_sales, transactions): (f64, i64) = if let Some(ref cut_date) = last_cut_date {
-        conn.query_row(
-            "SELECT COALESCE(SUM(total), 0), COUNT(*) FROM sales WHERE created_at > ?1 AND cancelled = 0",
-            params![cut_date],
-            |row| Ok((row.get(0)?, row.get(1)?)),
-        )
-        .map_err(|e| e.to_string())?
-    } else {
-        conn.query_row(
-            "SELECT COALESCE(SUM(total), 0), COUNT(*) FROM sales WHERE cancelled = 0",
-            [],
-            |row| Ok((row.get(0)?, row.get(1)?)),
-        )
-        .map_err(|e| e.to_string())?
-    };
-
-    let cash_sales: f64 = if let Some(ref cut_date) = last_cut_date {
-        // Pure cash sales
-        let pure: f64 = conn.query_row(
-            "SELECT COALESCE(SUM(total), 0) FROM sales WHERE created_at > ?1 AND cancelled = 0 AND payment_method = 'efectivo'",
-            params![cut_date], |row| row.get(0),
-        ).unwrap_or(0.0);
-        // Cash portion of mixed sales
-        let mixed: f64 = conn.query_row(
-            "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE s.created_at > ?1 AND s.cancelled = 0 AND s.payment_method = 'mixto' AND sp.method = 'efectivo'",
-            params![cut_date], |row| row.get(0),
-        ).unwrap_or(0.0);
-        pure + mixed
-    } else {
-        let pure: f64 = conn.query_row(
-            "SELECT COALESCE(SUM(total), 0) FROM sales WHERE cancelled = 0 AND payment_method = 'efectivo'",
-            [], |row| row.get(0),
-        ).unwrap_or(0.0);
-        let mixed: f64 = conn.query_row(
-            "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE s.cancelled = 0 AND s.payment_method = 'mixto' AND sp.method = 'efectivo'",
-            [], |row| row.get(0),
-        ).unwrap_or(0.0);
-        pure + mixed
-    };
-
-    let card_sales: f64 = if let Some(ref cut_date) = last_cut_date {
-        conn.query_row(
-            "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp
-             JOIN sales s ON s.id = sp.sale_id
-             WHERE s.created_at > ?1 AND sp.method = 'tarjeta' AND s.cancelled = 0",
-            params![cut_date],
-            |row| row.get(0),
-        ).unwrap_or(0.0)
-    } else {
-        conn.query_row(
-            "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp
-             JOIN sales s ON s.id = sp.sale_id WHERE sp.method = 'tarjeta' AND s.cancelled = 0",
-            [],
-            |row| row.get(0),
-        ).unwrap_or(0.0)
-    };
-
-    let transfer_sales: f64 = if let Some(ref cut_date) = last_cut_date {
-        conn.query_row(
-            "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp
-             JOIN sales s ON s.id = sp.sale_id
-             WHERE s.created_at > ?1 AND sp.method = 'transferencia' AND s.cancelled = 0",
-            params![cut_date],
-            |row| row.get(0),
-        ).unwrap_or(0.0)
-    } else {
-        conn.query_row(
-            "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp
-             JOIN sales s ON s.id = sp.sale_id WHERE sp.method = 'transferencia' AND s.cancelled = 0",
-            [],
-            |row| row.get(0),
-        ).unwrap_or(0.0)
-    };
-
-    Ok(CashCutSummary {
-        total_sales,
-        cash_sales,
-        card_sales,
-        transfer_sales,
-        transactions,
-        last_cut_date,
-    })
+    get_cash_cut_summary_internal(&conn)
 }
 
 #[tauri::command]
@@ -287,19 +213,23 @@ pub fn create_cash_cut(actual_cash: f64, notes: Option<String>, state: State<'_,
     conn.execute("BEGIN TRANSACTION", []).map_err(|e| e.to_string())?;
 
     let result = (|| -> Result<CashCut, String> {
-        // Calculate expected cash INSIDE the transaction
+        // Calculate expected cash INSIDE the transaction (net: cash - deliveries - supplier payments)
         let summary = get_cash_cut_summary_internal(&conn)?;
-        let expected_cash = summary.cash_sales;
+        let expected_cash = summary.cash_in_register;
         let difference = actual_cash - expected_cash;
 
         conn.execute(
-            "INSERT INTO cash_cuts (user_id, expected_cash, actual_cash, difference, notes) VALUES (?1, ?2, ?3, ?4, ?5)",
-            params![user_id, expected_cash, actual_cash, difference, notes],
+            "INSERT INTO cash_cuts (user_id, expected_cash, actual_cash, difference, notes, total_sales, cash_sales, card_sales, transfer_sales, credit_sales, transactions, deliveries_total, deliveries_count, supplier_payments_total, supplier_payments_count) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+            params![user_id, expected_cash, actual_cash, difference, notes,
+                summary.total_sales, summary.cash_sales, summary.card_sales,
+                summary.transfer_sales, summary.credit_sales, summary.transactions,
+                summary.deliveries_total, summary.deliveries_count,
+                summary.supplier_payments_total, summary.supplier_payments_count],
         ).map_err(|e| e.to_string())?;
 
         let id = conn.last_insert_rowid();
         conn.query_row(
-            "SELECT id, user_id, expected_cash, actual_cash, difference, notes, created_at FROM cash_cuts WHERE id = ?1",
+            "SELECT id, user_id, expected_cash, actual_cash, difference, notes, created_at, total_sales, cash_sales, card_sales, transfer_sales, credit_sales, transactions, deliveries_total, deliveries_count, supplier_payments_total, supplier_payments_count FROM cash_cuts WHERE id = ?1",
             params![id],
             |row| {
                 Ok(CashCut {
@@ -310,6 +240,16 @@ pub fn create_cash_cut(actual_cash: f64, notes: Option<String>, state: State<'_,
                     difference: row.get(4)?,
                     notes: row.get(5)?,
                     created_at: row.get(6)?,
+                    total_sales: row.get(7)?,
+                    cash_sales: row.get(8)?,
+                    card_sales: row.get(9)?,
+                    transfer_sales: row.get(10)?,
+                    credit_sales: row.get(11)?,
+                    transactions: row.get(12)?,
+                    deliveries_total: row.get(13)?,
+                    deliveries_count: row.get(14)?,
+                    supplier_payments_total: row.get(15)?,
+                    supplier_payments_count: row.get(16)?,
                 })
             },
         ).map_err(|e| e.to_string())
@@ -327,7 +267,7 @@ pub fn get_cash_cuts(from: String, to: String, state: State<'_, AppState>) -> Re
 
     let mut stmt = conn
         .prepare(
-            "SELECT id, user_id, expected_cash, actual_cash, difference, notes, created_at
+            "SELECT id, user_id, expected_cash, actual_cash, difference, notes, created_at, total_sales, cash_sales, card_sales, transfer_sales, credit_sales, transactions, deliveries_total, deliveries_count, supplier_payments_total, supplier_payments_count
              FROM cash_cuts
              WHERE date(created_at) >= date(?1) AND date(created_at) <= date(?2)
              ORDER BY created_at DESC",
@@ -344,6 +284,16 @@ pub fn get_cash_cuts(from: String, to: String, state: State<'_, AppState>) -> Re
                 difference: row.get(4)?,
                 notes: row.get(5)?,
                 created_at: row.get(6)?,
+                total_sales: row.get(7)?,
+                cash_sales: row.get(8)?,
+                card_sales: row.get(9)?,
+                transfer_sales: row.get(10)?,
+                credit_sales: row.get(11)?,
+                transactions: row.get(12)?,
+                deliveries_total: row.get(13)?,
+                deliveries_count: row.get(14)?,
+                supplier_payments_total: row.get(15)?,
+                supplier_payments_count: row.get(16)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -402,7 +352,66 @@ fn get_cash_cut_summary_internal(conn: &rusqlite::Connection) -> Result<CashCutS
         conn.query_row("SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE sp.method = 'transferencia' AND s.cancelled = 0", [], |row| row.get(0)).unwrap_or(0.0)
     };
 
-    Ok(CashCutSummary { total_sales, cash_sales, card_sales, transfer_sales, transactions, last_cut_date })
+    let credit_sales: f64 = if let Some(ref cut_date) = last_cut_date {
+        conn.query_row(
+            "SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE s.created_at > ?1 AND sp.method = 'credito' AND s.cancelled = 0",
+            params![cut_date], |row| row.get(0),
+        ).unwrap_or(0.0)
+    } else {
+        conn.query_row("SELECT COALESCE(SUM(sp.amount), 0) FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id WHERE sp.method = 'credito' AND s.cancelled = 0", [], |row| row.get(0)).unwrap_or(0.0)
+    };
+
+    let (deliveries_total, deliveries_count): (f64, i64) = if let Some(ref cut_date) = last_cut_date {
+        conn.query_row(
+            "SELECT COALESCE(SUM(amount), 0), COUNT(*) FROM cash_deliveries WHERE created_at > ?1",
+            params![cut_date], |row| Ok((row.get(0)?, row.get(1)?)),
+        ).map_err(|e| e.to_string())?
+    } else {
+        conn.query_row(
+            "SELECT COALESCE(SUM(amount), 0), COUNT(*) FROM cash_deliveries",
+            [], |row| Ok((row.get(0)?, row.get(1)?)),
+        ).map_err(|e| e.to_string())?
+    };
+
+    let (supplier_payments_total, supplier_payments_count): (f64, i64) = if let Some(ref cut_date) = last_cut_date {
+        conn.query_row(
+            "SELECT COALESCE(SUM(amount), 0), COUNT(*) FROM supplier_payments WHERE created_at > ?1",
+            params![cut_date], |row| Ok((row.get(0)?, row.get(1)?)),
+        ).map_err(|e| e.to_string())?
+    } else {
+        conn.query_row(
+            "SELECT COALESCE(SUM(amount), 0), COUNT(*) FROM supplier_payments",
+            [], |row| Ok((row.get(0)?, row.get(1)?)),
+        ).map_err(|e| e.to_string())?
+    };
+
+    let supplier_payments: Vec<SupplierPaymentSummary> = {
+        let query = if let Some(ref cut_date) = last_cut_date {
+            format!("SELECT supplier_name, amount, created_at FROM supplier_payments WHERE created_at > '{}' ORDER BY created_at ASC", cut_date)
+        } else {
+            "SELECT supplier_name, amount, created_at FROM supplier_payments ORDER BY created_at ASC".to_string()
+        };
+        let mut stmt = conn.prepare(&query).map_err(|e| e.to_string())?;
+        let rows = stmt.query_map([], |row| {
+            Ok(SupplierPaymentSummary {
+                supplier_name: row.get(0)?,
+                amount: row.get(1)?,
+                created_at: row.get(2)?,
+            })
+        }).map_err(|e| e.to_string())?;
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?
+    };
+
+    let cash_in_register = cash_sales - deliveries_total - supplier_payments_total;
+
+    Ok(CashCutSummary {
+        total_sales, cash_sales, card_sales, transfer_sales, credit_sales,
+        transactions, last_cut_date,
+        deliveries_total, deliveries_count,
+        supplier_payments_total, supplier_payments_count, supplier_payments,
+        cash_in_register,
+    })
 }
 
 // --- Cash deliveries (entregas parciales) ---
@@ -661,6 +670,84 @@ pub fn quick_cash_cut(state: State<'_, AppState>) -> Result<QuickCashCutResult, 
         supplier_payments,
         cash_in_register,
         date: today,
+    })
+}
+
+#[tauri::command]
+pub fn get_cash_cut_by_date(date: String, state: State<'_, AppState>) -> Result<QuickCashCutResult, String> {
+    let conn = state.db.get().map_err(|e| e.to_string())?;
+
+    // Validate date format
+    if chrono::NaiveDate::parse_from_str(&date, "%Y-%m-%d").is_err() {
+        return Err("Formato de fecha inválido. Usa YYYY-MM-DD (ej: 2026-07-10)".to_string());
+    }
+
+    // Read the cash cut snapshot directly from the table
+    let cut: CashCut = conn.query_row(
+        "SELECT id, user_id, expected_cash, actual_cash, difference, notes, created_at, total_sales, cash_sales, card_sales, transfer_sales, credit_sales, transactions, deliveries_total, deliveries_count, supplier_payments_total, supplier_payments_count
+         FROM cash_cuts WHERE date(created_at) = date(?1) ORDER BY id DESC LIMIT 1",
+        params![date],
+        |row| {
+            Ok(CashCut {
+                id: row.get(0)?,
+                user_id: row.get(1)?,
+                expected_cash: row.get(2)?,
+                actual_cash: row.get(3)?,
+                difference: row.get(4)?,
+                notes: row.get(5)?,
+                created_at: row.get(6)?,
+                total_sales: row.get(7)?,
+                cash_sales: row.get(8)?,
+                card_sales: row.get(9)?,
+                transfer_sales: row.get(10)?,
+                credit_sales: row.get(11)?,
+                transactions: row.get(12)?,
+                deliveries_total: row.get(13)?,
+                deliveries_count: row.get(14)?,
+                supplier_payments_total: row.get(15)?,
+                supplier_payments_count: row.get(16)?,
+            })
+        },
+    ).map_err(|_| format!("No hay corte de caja registrado para la fecha {}", date))?;
+
+    // Get supplier payment details for that period (between previous cut and this cut)
+    let prev_cut_time: Option<String> = conn.query_row(
+        "SELECT created_at FROM cash_cuts WHERE created_at < ?1 ORDER BY id DESC LIMIT 1",
+        params![cut.created_at], |row| row.get(0),
+    ).ok();
+
+    let supplier_payments: Vec<SupplierPaymentSummary> = {
+        let query = if let Some(ref prev_time) = prev_cut_time {
+            format!("SELECT supplier_name, amount, created_at FROM supplier_payments WHERE created_at > '{}' AND created_at <= '{}' ORDER BY created_at ASC", prev_time, cut.created_at)
+        } else {
+            format!("SELECT supplier_name, amount, created_at FROM supplier_payments WHERE created_at <= '{}' ORDER BY created_at ASC", cut.created_at)
+        };
+        let mut stmt = conn.prepare(&query).map_err(|e| e.to_string())?;
+        let rows = stmt.query_map([], |row| {
+            Ok(SupplierPaymentSummary {
+                supplier_name: row.get(0)?,
+                amount: row.get(1)?,
+                created_at: row.get(2)?,
+            })
+        }).map_err(|e| e.to_string())?;
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?
+    };
+
+    Ok(QuickCashCutResult {
+        total_sales: cut.total_sales,
+        transactions: cut.transactions,
+        cash_total: cut.cash_sales,
+        card_total: cut.card_sales,
+        transfer_total: cut.transfer_sales,
+        credit_total: cut.credit_sales,
+        deliveries_total: cut.deliveries_total,
+        deliveries_count: cut.deliveries_count,
+        supplier_payments_total: cut.supplier_payments_total,
+        supplier_payments_count: cut.supplier_payments_count,
+        supplier_payments,
+        cash_in_register: cut.expected_cash,
+        date,
     })
 }
 

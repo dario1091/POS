@@ -11,16 +11,20 @@ interface CashCutData {
 interface CashCutModalProps {
   show: boolean;
   data: CashCutData | null;
-  onPrint: () => void;
+  mode: "preview" | "reprint";
+  onConfirm: () => void;
   onClose: () => void;
 }
 
-export function CashCutModal({ show, data, onPrint, onClose }: CashCutModalProps) {
+export function CashCutModal({ show, data, mode, onConfirm, onClose }: CashCutModalProps) {
   if (!show || !data) return null;
 
   return (
     <Modal onClose={onClose}>
-      <h2 className="text-lg font-bold text-foreground mb-4">Cierre de Caja — {data.date}</h2>
+      <h2 className="text-lg font-bold text-foreground mb-1">
+        {mode === "preview" ? "Vista previa — Cierre de Caja" : "Corte de Caja"}
+      </h2>
+      <p className="text-xs text-muted-foreground mb-4">{data.date}</p>
       <div className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
           <div className="p-3 rounded-md bg-secondary/50">
@@ -81,12 +85,17 @@ export function CashCutModal({ show, data, onPrint, onClose }: CashCutModalProps
           </div>
         </div>
       </div>
+      {mode === "preview" && (
+        <p className="text-xs text-muted-foreground mt-3 text-center italic">
+          Solo vista previa — el corte no se ha registrado aún
+        </p>
+      )}
       <div className="flex gap-2 mt-4">
         <button
-          onClick={onPrint}
+          onClick={onConfirm}
           className="flex-1 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
         >
-          Imprimir cierre
+          {mode === "preview" ? "Imprimir y registrar corte" : "Reimprimir ticket"}
         </button>
         <button
           onClick={onClose}
