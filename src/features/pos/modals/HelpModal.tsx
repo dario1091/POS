@@ -65,7 +65,8 @@ export function HelpModal({ show, onClose }: HelpModalProps) {
           <div className="space-y-1 text-muted-foreground">
             <p><span className="text-foreground font-mono">pv{"{código}"}</span> — Consultar precio</p>
             <p><span className="text-foreground font-mono">pv nombre</span> — Buscar por nombre</p>
-            <p><span className="text-foreground font-mono">CC</span> — Cierre de caja (desde último corte)</p>
+            <p><span className="text-foreground font-mono">CC</span> — Vista previa del cierre de caja (sin registrar)</p>
+            <p><span className="text-foreground font-mono">CX2026-07-10</span> — Ver/reimprimir corte de una fecha</p>
             <p><span className="text-foreground font-mono">EP</span> — Entrega parcial de efectivo</p>
             <p><span className="text-foreground font-mono">EP5000</span> — Entrega de $5000 (monto directo)</p>
             <p><span className="text-foreground font-mono">PP</span> — Pago a proveedor</p>
