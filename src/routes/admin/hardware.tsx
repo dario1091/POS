@@ -216,7 +216,7 @@ export function HardwarePage() {
               type="text"
               value={printerPath}
               onChange={(e) => setPrinterPath(e.target.value)}
-              placeholder="O escribe la ruta manualmente: /dev/usb/lp0"
+              placeholder="O escribe manualmente: 0456:0808"
               className="w-full mt-2 px-3 py-2 rounded-md bg-input border border-border text-foreground text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
@@ -275,7 +275,7 @@ export function HardwarePage() {
               type="text"
               value={labelPrinterPath}
               onChange={(e) => setLabelPrinterPath(e.target.value)}
-              placeholder="O escribe la ruta manualmente: /dev/usb/lp1"
+              placeholder="O escribe manualmente: 2d84:4cfb"
               className="w-full mt-2 px-3 py-2 rounded-md bg-input border border-border text-foreground text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>

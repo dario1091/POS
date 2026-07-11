@@ -1,5 +1,4 @@
-use std::fs::OpenOptions;
-use std::io::Write;
+use crate::hardware::usb_printer::write_to_usb_printer;
 
 /// ESC/POS command constants
 const ESC: u8 = 0x1B;
@@ -7,32 +6,24 @@ const GS: u8 = 0x1D;
 const LF: u8 = 0x0A;
 
 /// ESC/POS Printer driver
-/// Writes raw bytes to a USB device file (e.g., /dev/usb/lp0)
+/// Communicates directly via USB (rusb) using VID:PID
 pub struct Printer {
-    device_path: String,
+    vendor_id: u16,
+    product_id: u16,
 }
 
 impl Printer {
-    pub fn new(device_path: &str) -> Self {
-        Self {
-            device_path: device_path.to_string(),
-        }
+    /// Create from a device_key string like "0456:0808"
+    pub fn new(device_key: &str) -> Self {
+        let parts: Vec<&str> = device_key.split(':').collect();
+        let vendor_id = u16::from_str_radix(parts.get(0).unwrap_or(&"0"), 16).unwrap_or(0);
+        let product_id = u16::from_str_radix(parts.get(1).unwrap_or(&"0"), 16).unwrap_or(0);
+        Self { vendor_id, product_id }
     }
 
-    /// Open device and write buffer
+    /// Write raw bytes directly via libusb
     fn write_to_device(&self, data: &[u8]) -> Result<(), String> {
-        let mut file = OpenOptions::new()
-            .write(true)
-            .open(&self.device_path)
-            .map_err(|e| format!("No se pudo abrir la impresora ({}): {}", self.device_path, e))?;
-
-        file.write_all(data)
-            .map_err(|e| format!("Error escribiendo a la impresora: {}", e))?;
-
-        file.flush()
-            .map_err(|e| format!("Error flush impresora: {}", e))?;
-
-        Ok(())
+        write_to_usb_printer(self.vendor_id, self.product_id, data)
     }
 
     /// Build and send a complete ticket

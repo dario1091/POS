@@ -6,7 +6,7 @@ use crate::hardware::label_printer::{LabelPrinter, TsplLabelLine};
 use crate::hardware::scale;
 use crate::AppState;
 
-/// Get label printer device path from config
+/// Get label printer device key (VID:PID) from config
 fn get_label_printer_path(state: &State<'_, AppState>) -> Result<String, String> {
     let conn = state.db.get().map_err(|e| e.to_string())?;
     conn.query_row(
@@ -17,7 +17,7 @@ fn get_label_printer_path(state: &State<'_, AppState>) -> Result<String, String>
     .map_err(|_| "Impresora de etiquetas no configurada. Ve a Admin > Configuración de hardware.".to_string())
 }
 
-/// Get printer device path from config
+/// Get printer device key (VID:PID) from config
 fn get_printer_path(state: &State<'_, AppState>) -> Result<String, String> {
     let conn = state.db.get().map_err(|e| e.to_string())?;
     conn.query_row(
@@ -171,11 +171,11 @@ pub fn configure_scale(port: String, baud_rate: u32, state: State<'_, AppState>)
 }
 
 #[tauri::command]
-pub fn configure_printer(device_path: String, state: State<'_, AppState>) -> Result<(), String> {
+pub fn configure_printer(device_key: String, state: State<'_, AppState>) -> Result<(), String> {
     let conn = state.db.get().map_err(|e| e.to_string())?;
     conn.execute(
         "INSERT OR REPLACE INTO config (key, value) VALUES ('printer_device', ?1)",
-        params![device_path],
+        params![device_key],
     ).map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -237,33 +237,7 @@ pub fn list_printers() -> Result<Vec<serde_json::Value>, String> {
     Ok(result)
 }
 
-/// Try to read the USB printer manufacturer + product name from sysfs
-fn read_usb_printer_name(dev_path: &str) -> Option<String> {
-    // dev_path is like /dev/usb/lp0 → minor number maps to sysfs usblp0
-    let dev_name = std::path::Path::new(dev_path)
-        .file_name()?
-        .to_str()?
-        .to_string(); // e.g. "lp0"
 
-    // Walk /sys/class/usb/ to find matching device
-    let sysfs_class = format!("/sys/class/usbmisc/lp{}", &dev_name[2..]);
-    let device_link = format!("{}/device", sysfs_class);
-
-    // Read manufacturer and product
-    let manufacturer = std::fs::read_to_string(format!("{}/manufacturer", device_link))
-        .ok()
-        .map(|s| s.trim().to_string());
-    let product = std::fs::read_to_string(format!("{}/product", device_link))
-        .ok()
-        .map(|s| s.trim().to_string());
-
-    match (manufacturer, product) {
-        (Some(m), Some(p)) => Some(format!("{} — {} ({})", m, p, dev_path)),
-        (None, Some(p))    => Some(format!("{} ({})", p, dev_path)),
-        (Some(m), None)    => Some(format!("{} ({})", m, dev_path)),
-        _                  => None,
-    }
-}
 
 #[tauri::command]
 pub fn print_delivery_receipt(
