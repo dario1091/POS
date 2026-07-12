@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import type { CartItem } from "@/shared/api/types";
 
 interface CartTableProps {
@@ -6,6 +7,12 @@ interface CartTableProps {
 }
 
 export function CartTable({ cart, selectedIndex }: CartTableProps) {
+  const lastRowRef = useRef<HTMLTableRowElement>(null);
+
+  useEffect(() => {
+    lastRowRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [cart.length]);
+
   return (
     <table className="w-full">
       <thead className="bg-card sticky top-0">
@@ -22,6 +29,7 @@ export function CartTable({ cart, selectedIndex }: CartTableProps) {
         {cart.map((item, index) => (
           <tr
             key={`${item.product.id}-${item.product.sale_price}-${index}`}
+            ref={index === cart.length - 1 ? lastRowRef : undefined}
             className={`border-b border-border transition-colors ${
               index === selectedIndex
                 ? "bg-primary/20 border-l-4 border-l-primary"

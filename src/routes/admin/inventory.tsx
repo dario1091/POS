@@ -14,10 +14,18 @@ interface BulkItem {
 
 export function InventoryPage() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [showBulkAdjust, setShowBulkAdjust] = useState(false);
-  const [bulkItems, setBulkItems] = useState<BulkItem[]>([]);
+  const [showBulkAdjust, setShowBulkAdjust] = useState(() => {
+    const saved = sessionStorage.getItem("inventory_bulk_items");
+    return saved ? JSON.parse(saved).length > 0 : false;
+  });
+  const [bulkItems, setBulkItems] = useState<BulkItem[]>(() => {
+    const saved = sessionStorage.getItem("inventory_bulk_items");
+    return saved ? JSON.parse(saved) : [];
+  });
   const [scanInput, setScanInput] = useState("");
-  const [reason, setReason] = useState("Ajuste de inventario");
+  const [reason, setReason] = useState(() => {
+    return sessionStorage.getItem("inventory_bulk_reason") || "Ajuste de inventario";
+  });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
@@ -45,6 +53,23 @@ export function InventoryPage() {
   const [adjustType, setAdjustType] = useState<"entrada" | "salida">("entrada");
   const [quantity, setQuantity] = useState("");
   const [singleReason, setSingleReason] = useState("");
+
+  // Persist bulk adjust state to sessionStorage
+  useEffect(() => {
+    if (bulkItems.length > 0) {
+      sessionStorage.setItem("inventory_bulk_items", JSON.stringify(bulkItems));
+    } else {
+      sessionStorage.removeItem("inventory_bulk_items");
+    }
+  }, [bulkItems]);
+
+  useEffect(() => {
+    if (reason !== "Ajuste de inventario") {
+      sessionStorage.setItem("inventory_bulk_reason", reason);
+    } else {
+      sessionStorage.removeItem("inventory_bulk_reason");
+    }
+  }, [reason]);
 
   useEffect(() => {
     loadProducts();
@@ -286,9 +311,14 @@ export function InventoryPage() {
           </button>
           <button
             onClick={() => {
+              const closing = showBulkAdjust;
               setShowBulkAdjust(!showBulkAdjust);
               setShowAdjust(false);
               setShowCsvImport(false);
+              if (closing) {
+                setBulkItems([]);
+                setReason("Ajuste de inventario");
+              }
             }}
             className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
           >
