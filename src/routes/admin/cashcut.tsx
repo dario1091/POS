@@ -73,11 +73,9 @@ export function CashCutPage() {
       {/* Current period summary */}
       {summary && (
         <div className="mb-8 p-5 rounded-lg bg-card border border-border">
-          <h2 className="text-lg font-semibold text-foreground mb-1">Período actual</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-1">Resumen del día</h2>
           <p className="text-xs text-muted-foreground mb-4">
-            {summary.last_cut_date
-              ? `Desde último corte: ${summary.last_cut_date}`
-              : "Desde el inicio (sin cortes previos)"}
+            {today}
           </p>
 
           {/* Sales breakdown */}
