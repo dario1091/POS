@@ -416,6 +416,10 @@ pub struct QuickCashCutResult {
     pub supplier_payments_total: f64,
     pub supplier_payments_count: i64,
     pub supplier_payments: Vec<SupplierPaymentSummary>,
+    pub returns_total: f64,
+    pub returns_count: i64,
+    pub cancellations_total: f64,
+    pub cancellations_count: i64,
     pub cash_in_register: f64,
     pub date: String,
 }
@@ -597,7 +601,17 @@ pub fn quick_cash_cut(state: State<'_, AppState>) -> Result<QuickCashCutResult, 
         results
     };
 
-    let cash_in_register = cash_total - deliveries_total - supplier_payments_total;
+    let (returns_total, returns_count): (f64, i64) = conn.query_row(
+        &format!("SELECT COALESCE(SUM(total), 0), COUNT(*) FROM returns WHERE {}", time_filter_simple),
+        [], |row| Ok((row.get(0)?, row.get(1)?)),
+    ).map_err(|e| e.to_string())?;
+
+    let (cancellations_total, cancellations_count): (f64, i64) = conn.query_row(
+        &format!("SELECT COALESCE(SUM(total), 0), COUNT(*) FROM sales WHERE {} AND cancelled = 1", time_filter_simple),
+        [], |row| Ok((row.get(0)?, row.get(1)?)),
+    ).map_err(|e| e.to_string())?;
+
+    let cash_in_register = cash_total - deliveries_total - supplier_payments_total - returns_total;
 
     Ok(QuickCashCutResult {
         total_sales,
@@ -611,6 +625,10 @@ pub fn quick_cash_cut(state: State<'_, AppState>) -> Result<QuickCashCutResult, 
         supplier_payments_total,
         supplier_payments_count,
         supplier_payments,
+        returns_total,
+        returns_count,
+        cancellations_total,
+        cancellations_count,
         cash_in_register,
         date: today,
     })
@@ -677,6 +695,17 @@ pub fn get_cash_cut_by_date(date: String, state: State<'_, AppState>) -> Result<
             .map_err(|e| e.to_string())?
     };
 
+    // Get returns and cancellations for that date
+    let (returns_total, returns_count): (f64, i64) = conn.query_row(
+        "SELECT COALESCE(SUM(total), 0), COUNT(*) FROM returns WHERE date(created_at) = date(?1)",
+        params![date], |row| Ok((row.get(0)?, row.get(1)?)),
+    ).unwrap_or((0.0, 0));
+
+    let (cancellations_total, cancellations_count): (f64, i64) = conn.query_row(
+        "SELECT COALESCE(SUM(total), 0), COUNT(*) FROM sales WHERE date(created_at) = date(?1) AND cancelled = 1",
+        params![date], |row| Ok((row.get(0)?, row.get(1)?)),
+    ).unwrap_or((0.0, 0));
+
     Ok(QuickCashCutResult {
         total_sales: cut.total_sales,
         transactions: cut.transactions,
@@ -689,6 +718,10 @@ pub fn get_cash_cut_by_date(date: String, state: State<'_, AppState>) -> Result<
         supplier_payments_total: cut.supplier_payments_total,
         supplier_payments_count: cut.supplier_payments_count,
         supplier_payments,
+        returns_total,
+        returns_count,
+        cancellations_total,
+        cancellations_count,
         cash_in_register: cut.expected_cash,
         date,
     })

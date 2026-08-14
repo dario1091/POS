@@ -43,13 +43,13 @@ impl LabelPrinter {
     }
 
     /// Print label using TSPL protocol
-    /// Label size: 55mm wide x 33mm tall (default for 4B-2054TG)
-    pub fn print_label(&self, lines: &[TsplLabelLine], copies: u32, barcode: Option<&str>) -> Result<(), String> {
-        // Label: 55mm x 33mm = 440 x 264 dots at 203dpi (8 dots/mm)
-        let label_width_mm: u32 = 55;
-        let label_height_mm: u32 = 33;
+    pub fn print_label(&self, lines: &[TsplLabelLine], copies: u32, barcode: Option<&str>, label_width_mm: u32, label_height_mm: u32, barcode_width: u32) -> Result<(), String> {
+        // Reset printer state before sending the job to avoid buffer stuck issues
+        self.write_to_device(b"INITIALPRINTER\r\n")?;
+        std::thread::sleep(std::time::Duration::from_millis(200));
+
         let gap_mm: u32 = 2;
-        let label_width_dots: u32 = label_width_mm * 8;  // 440
+        let label_width_dots: u32 = label_width_mm * 8;
         let margin_x: u32 = 5;
 
         let mut cmd = String::new();
@@ -130,8 +130,8 @@ impl LabelPrinter {
                 };
 
                 cmd.push_str(&format!(
-                    "BARCODE {},{},\"128\",{},1,0,2,2,\"{}\"\r\n",
-                    bc_x, bc_y, bc_height, bc
+                    "BARCODE {},{},\"128\",{},1,0,{},{},\"{}\"\r\n",
+                    bc_x, bc_y, bc_height, barcode_width, barcode_width, bc
                 ));
             }
         }
@@ -142,6 +142,10 @@ impl LabelPrinter {
 
     /// Print a test label
     pub fn print_test(&self) -> Result<(), String> {
+        // Reset printer state before test
+        self.write_to_device(b"INITIALPRINTER\r\n")?;
+        std::thread::sleep(std::time::Duration::from_millis(200));
+
         let test_lines = vec![
             TsplLabelLine {
                 text: "PRUEBA".to_string(),
@@ -156,6 +160,6 @@ impl LabelPrinter {
                 bold: false,
             },
         ];
-        self.print_label(&test_lines, 1, Some("1234567890"))
+        self.print_label(&test_lines, 1, Some("1234567890"), 55, 33, 3)
     }
 }

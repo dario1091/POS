@@ -13,6 +13,9 @@ interface LabelConfig {
   lines: LabelLine[];
   showBarcode: boolean;
   barcodeValue: string;
+  barcodeWidth: number;
+  labelWidth: number;
+  labelHeight: number;
   copies: number;
 }
 
@@ -26,6 +29,9 @@ const defaultConfig = (): LabelConfig => ({
   lines: defaultLines(),
   showBarcode: false,
   barcodeValue: "",
+  barcodeWidth: 4,
+  labelWidth: 55,
+  labelHeight: 33,
   copies: 1,
 });
 
@@ -40,6 +46,7 @@ export function LabelsPage() {
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [searching, setSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
+  const [highlightIndex, setHighlightIndex] = useState(-1);
   const searchRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown on outside click
@@ -55,14 +62,44 @@ export function LabelsPage() {
 
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
-    if (query.trim().length < 2) {
+    const term = query.trim();
+    if (term.length < 1) {
       setSearchResults([]);
       setShowResults(false);
       return;
     }
+
+    // #N → búsqueda exacta por referencia (ID)
+    const refMatch = term.match(/^#(\d+)$/);
+    if (refMatch) {
+      setSearching(true);
+      try {
+        const product = await api.searchProductByCode(refMatch[1]);
+        setSearchResults(product ? [product] : []);
+        setShowResults(true);
+      } catch { setSearchResults([]); }
+      finally { setSearching(false); }
+      return;
+    }
+
+    // Puramente numérico → búsqueda por código de barras
+    if (/^\d+$/.test(term)) {
+      if (term.length < 1) { setSearchResults([]); setShowResults(false); return; }
+      setSearching(true);
+      try {
+        const product = await api.searchProductByCode(term);
+        setSearchResults(product ? [product] : []);
+        setShowResults(true);
+      } catch { setSearchResults([]); }
+      finally { setSearching(false); }
+      return;
+    }
+
+    // Texto → búsqueda por nombre
+    if (term.length < 2) { setSearchResults([]); setShowResults(false); return; }
     setSearching(true);
     try {
-      const results = await api.searchProductsByName(query);
+      const results = await api.searchProductsByName(term);
       setSearchResults(results.slice(0, 8));
       setShowResults(true);
     } catch {
@@ -99,6 +136,9 @@ export function LabelsPage() {
       lines: newLines,
       showBarcode: !!(product.barcode),
       barcodeValue: product.barcode || "",
+      barcodeWidth: config.barcodeWidth,
+      labelWidth: config.labelWidth,
+      labelHeight: config.labelHeight,
       copies: config.copies,
     });
 
@@ -140,7 +180,7 @@ export function LabelsPage() {
       const barcode = config.showBarcode && config.barcodeValue.trim()
         ? config.barcodeValue.trim()
         : undefined;
-      await api.printLabel(nonEmpty, config.copies, barcode);
+      await api.printLabel(nonEmpty, config.copies, barcode, config.labelWidth, config.labelHeight, config.barcodeWidth);
       setSuccess(`✅ ${config.copies} etiqueta${config.copies > 1 ? "s" : ""} impresa${config.copies > 1 ? "s" : ""}`);
       setTimeout(() => setSuccess(""), 3000);
     } catch (err) {
@@ -182,10 +222,26 @@ export function LabelsPage() {
         <div className="relative" ref={searchRef}>
           <input
             type="text"
-            placeholder="Escribe el nombre del producto..."
+            placeholder="#ref | código de barras | nombre..."
             value={searchQuery}
-            onChange={(e) => handleSearch(e.target.value)}
+            onChange={(e) => { handleSearch(e.target.value); setHighlightIndex(-1); }}
             onFocus={() => searchResults.length > 0 && setShowResults(true)}
+            onKeyDown={(e) => {
+              if (!showResults || searchResults.length === 0) return;
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                setHighlightIndex((prev) => (prev < searchResults.length - 1 ? prev + 1 : 0));
+              } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                setHighlightIndex((prev) => (prev > 0 ? prev - 1 : searchResults.length - 1));
+              } else if ((e.key === "Enter" || e.key === "Tab") && highlightIndex >= 0) {
+                e.preventDefault();
+                handleSelectProduct(searchResults[highlightIndex]);
+              } else if (e.key === "Enter" && highlightIndex === -1 && searchResults.length === 1) {
+                e.preventDefault();
+                handleSelectProduct(searchResults[0]);
+              }
+            }}
             className="w-full px-3 py-2 rounded-md bg-input border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
           {searching && (
@@ -193,11 +249,13 @@ export function LabelsPage() {
           )}
           {showResults && searchResults.length > 0 && (
             <div className="absolute z-10 w-full mt-1 bg-card border border-border rounded-md shadow-lg max-h-60 overflow-auto">
-              {searchResults.map((product) => (
+              {searchResults.map((product, index) => (
                 <button
                   key={product.id}
                   onClick={() => handleSelectProduct(product)}
-                  className="w-full px-3 py-2 text-left hover:bg-accent flex items-center justify-between gap-2"
+                  className={`w-full px-3 py-2 text-left flex items-center justify-between gap-2 ${
+                    index === highlightIndex ? "bg-primary/20 text-foreground" : "hover:bg-accent"
+                  }`}
                 >
                   <div>
                     <span className="text-sm text-foreground">{product.name}</span>
@@ -310,14 +368,69 @@ export function LabelsPage() {
               </button>
             </div>
             {config.showBarcode && (
-              <input
-                type="text"
-                placeholder="Número del código de barras"
-                value={config.barcodeValue}
-                onChange={(e) => setConfig((prev) => ({ ...prev, barcodeValue: e.target.value }))}
-                className="w-full px-3 py-2 rounded-md bg-input border border-border text-foreground text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring"
-              />
+              <>
+                <input
+                  type="text"
+                  placeholder="Número del código de barras"
+                  value={config.barcodeValue}
+                  onChange={(e) => setConfig((prev) => ({ ...prev, barcodeValue: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-md bg-input border border-border text-foreground text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-muted-foreground">Ancho barras:</label>
+                  <select
+                    value={config.barcodeWidth}
+                    onChange={(e) => setConfig((prev) => ({ ...prev, barcodeWidth: parseInt(e.target.value) }))}
+                    className="px-2 py-1 rounded bg-input border border-border text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <option value="2">Fino (2)</option>
+                    <option value="3">Normal (3)</option>
+                    <option value="4">Ancho (4)</option>
+                    <option value="5">Extra ancho (5)</option>
+                  </select>
+                </div>
+              </>
             )}
+          </div>
+
+          {/* Label size */}
+          <div className="p-3 rounded-md bg-card border border-border space-y-2">
+            <label className="text-sm text-foreground">Tamaño de etiqueta (mm)</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min="20"
+                max="100"
+                value={config.labelWidth}
+                onChange={(e) => setConfig((prev) => ({ ...prev, labelWidth: Math.max(20, parseInt(e.target.value) || 55) }))}
+                className="w-16 px-2 py-1 rounded-md bg-input border border-border text-foreground text-sm text-center font-mono focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              <span className="text-xs text-muted-foreground">×</span>
+              <input
+                type="number"
+                min="10"
+                max="100"
+                value={config.labelHeight}
+                onChange={(e) => setConfig((prev) => ({ ...prev, labelHeight: Math.max(10, parseInt(e.target.value) || 33) }))}
+                className="w-16 px-2 py-1 rounded-md bg-input border border-border text-foreground text-sm text-center font-mono focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              <span className="text-xs text-muted-foreground">mm</span>
+            </div>
+            <div className="flex gap-1 flex-wrap">
+              {[{ w: 55, h: 33, label: "55×33" }, { w: 40, h: 25, label: "40×25" }, { w: 70, h: 40, label: "70×40" }, { w: 50, h: 25, label: "50×25" }].map((preset) => (
+                <button
+                  key={preset.label}
+                  onClick={() => setConfig((prev) => ({ ...prev, labelWidth: preset.w, labelHeight: preset.h }))}
+                  className={`px-2 py-0.5 rounded text-xs transition-colors ${
+                    config.labelWidth === preset.w && config.labelHeight === preset.h
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Copies and print */}
@@ -349,8 +462,8 @@ export function LabelsPage() {
         <div>
           <h2 className="text-sm font-medium text-foreground mb-3">Vista previa</h2>
           <div
-            className="bg-white text-black rounded-md border-2 border-border flex flex-col justify-center overflow-hidden"
-            style={{ width: "100%", aspectRatio: "55/33", fontFamily: "monospace", padding: "8px" }}
+            className="bg-white text-black rounded-md border-2 border-border flex flex-col justify-center overflow-hidden mx-auto"
+            style={{ width: `${config.labelWidth * 3.78}px`, height: `${config.labelHeight * 3.78}px`, fontFamily: "monospace", padding: "8px" }}
           >
             {config.lines.filter((l) => l.text.trim()).length === 0 && !config.showBarcode ? (
               <p className="text-gray-400 text-center text-xs">Busca un producto o escribe texto</p>
@@ -386,7 +499,7 @@ export function LabelsPage() {
             )}
           </div>
           <p className="text-xs text-muted-foreground mt-2">
-            Vista previa aproximada — 55mm × 33mm
+            Vista previa aproximada — {config.labelWidth}mm × {config.labelHeight}mm
           </p>
         </div>
       </div>

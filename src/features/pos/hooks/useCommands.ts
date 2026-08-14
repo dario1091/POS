@@ -13,6 +13,8 @@ interface UseCommandsOptions {
     transfer_total: number; credit_total: number; deliveries_total: number;
     deliveries_count: number; supplier_payments_total: number; supplier_payments_count: number;
     supplier_payments: { supplier_name: string; amount: number; created_at: string }[];
+    returns_total: number; returns_count: number;
+    cancellations_total: number; cancellations_count: number;
     cash_in_register: number; date: string;
   }, mode: "preview" | "reprint") => void;
   openCreditPay: () => void;
@@ -57,8 +59,8 @@ export function useCommands(options: UseCommandsOptions) {
     const trimmed = cmd.trim();
     if (!trimmed) return;
 
-    // $monto*código — agregar producto con precio custom (solo si es MAYOR al precio del sistema)
-    const amountMatch = trimmed.match(/^\$(\d+(?:\.\d+)?)\*(.+)$/);
+    // monto**código — agregar producto con precio custom (solo si es MAYOR al precio del sistema)
+    const amountMatch = trimmed.match(/^(\d+(?:\.\d+)?)\*\*(.+)$/);
     if (amountMatch) {
       const amount = parseFloat(amountMatch[1]);
       const code = amountMatch[2];
@@ -124,19 +126,21 @@ export function useCommands(options: UseCommandsOptions) {
       return;
     }
 
-    // EP or EP{monto} — Entrega parcial de efectivo
+    // EP or EP{monto} — Entrega parcial de efectivo (requiere admin)
     const epMatch = trimmed.match(/^ep(\d+)?$/i);
     if (epMatch) {
       setCommand("");
-      openDelivery(epMatch[1] || undefined);
+      const amount = epMatch[1] || undefined;
+      requireAdminAuth(() => openDelivery(amount));
       return;
     }
 
-    // PP or PP{monto} — Pago a proveedor
+    // PP or PP{monto} — Pago a proveedor (requiere admin)
     const ppMatch = trimmed.match(/^pp(\d+)?$/i);
     if (ppMatch) {
       setCommand("");
-      openSupplierPayment(ppMatch[1] || undefined);
+      const amount = ppMatch[1] || undefined;
+      requireAdminAuth(() => openSupplierPayment(amount));
       return;
     }
 

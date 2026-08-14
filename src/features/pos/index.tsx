@@ -20,6 +20,7 @@ import { CustomerModal } from "@/features/pos/modals/CustomerModal";
 import { PriceModal } from "@/features/pos/modals/PriceModal";
 import { SearchModal } from "@/features/pos/modals/SearchModal";
 import { AmountModal } from "@/features/pos/modals/AmountModal";
+import { ScaleModal } from "@/features/pos/modals/ScaleModal";
 import { HelpModal } from "@/features/pos/modals/HelpModal";
 import { AdminAuthModal } from "@/features/pos/modals/AdminAuthModal";
 import { CashCutModal } from "@/features/pos/modals/CashCutModal";
@@ -54,6 +55,7 @@ export function PosPage() {
   const [showPriceModal, setShowPriceModal] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [showAmountModal, setShowAmountModal] = useState(false);
+  const [showScaleModal, setShowScaleModal] = useState(false);
   const [showCashCutModal, setShowCashCutModal] = useState(false);
   const [cashCutMode, setCashCutMode] = useState<"preview" | "reprint">("preview");
   const [showDeliveryModal, setShowDeliveryModal] = useState(false);
@@ -73,11 +75,14 @@ export function PosPage() {
   const [priceInfo, setPriceInfo] = useState<Product | null>(null);
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [amountProduct, setAmountProduct] = useState<Product | null>(null);
+  const [scaleProduct, setScaleProduct] = useState<Product | null>(null);
   const [cashCutData, setCashCutData] = useState<{
     total_sales: number; transactions: number; cash_total: number; card_total: number;
     transfer_total: number; credit_total: number; deliveries_total: number;
     deliveries_count: number; supplier_payments_total: number; supplier_payments_count: number;
     supplier_payments: { supplier_name: string; amount: number; created_at: string }[];
+    returns_total: number; returns_count: number;
+    cancellations_total: number; cancellations_count: number;
     cash_in_register: number; date: string;
   } | null>(null);
   const [deliveryAmount, setDeliveryAmount] = useState("");
@@ -189,12 +194,18 @@ export function PosPage() {
     } catch (err) { setError(String(err)); }
   }, [supplierPaymentAmount, supplierPaymentName, focusInput]);
 
-  // --- addToCart wrapper for "monto" products ---
+  // --- addToCart wrapper for "monto" and "bascula" products ---
   const addToCartWithAmountCheck = useCallback((product: Product, quantity: number, customPrice?: number) => {
     if (product.price_type === "monto" && !customPrice) {
       setAmountProduct(product);
       setShowAmountModal(true);
       setTimeout(() => document.getElementById("product-amount-input")?.focus(), 50);
+      return;
+    }
+    if (product.price_type === "bascula" && !customPrice) {
+      setScaleProduct(product);
+      setShowScaleModal(true);
+      setTimeout(() => document.getElementById("scale-grams-input")?.focus(), 50);
       return;
     }
     addToCart(product, quantity, customPrice);
@@ -224,7 +235,7 @@ export function PosPage() {
 
   // --- Keyboard hook ---
   const anyModalOpen = payment.showPaymentModal || showCustomerModal || showPriceModal ||
-    showSearchModal || showAmountModal || showCashCutModal || showDeliveryModal ||
+    showSearchModal || showAmountModal || showScaleModal || showCashCutModal || showDeliveryModal ||
     showSupplierPaymentModal || showHistoryModal || showCreditPayModal || showReprintModal ||
     showHelpModal || showAdminAuthModal || showCancelSaleModal || showPrintPrompt || showConfirmCancel;
 
@@ -368,6 +379,12 @@ export function PosPage() {
         onConfirm={(p, amount) => { addToCart(p, 1, amount); setShowAmountModal(false); setAmountProduct(null); focusInput(); }}
         onClose={() => { setShowAmountModal(false); setAmountProduct(null); focusInput(); }}
       />
+      <ScaleModal
+        show={showScaleModal}
+        product={scaleProduct}
+        onConfirm={(p, price) => { addToCart(p, 1, price); setShowScaleModal(false); setScaleProduct(null); focusInput(); }}
+        onClose={() => { setShowScaleModal(false); setScaleProduct(null); focusInput(); }}
+      />
       <CashCutModal
         show={showCashCutModal}
         data={cashCutData}
@@ -378,14 +395,14 @@ export function PosPage() {
               // Register the cash cut and then print
               api.createCashCut(cashCutData.cash_in_register, "Cierre desde POS")
                 .then(() => {
-                  api.printCashCutReceipt({ totalSales: cashCutData.total_sales, transactions: cashCutData.transactions, cashTotal: cashCutData.cash_total, cardTotal: cashCutData.card_total, transferTotal: cashCutData.transfer_total, creditTotal: cashCutData.credit_total, deliveriesTotal: cashCutData.deliveries_total, deliveriesCount: cashCutData.deliveries_count, cashInRegister: cashCutData.cash_in_register })
+                  api.printCashCutReceipt({ totalSales: cashCutData.total_sales, transactions: cashCutData.transactions, cashTotal: cashCutData.cash_total, cardTotal: cashCutData.card_total, transferTotal: cashCutData.transfer_total, creditTotal: cashCutData.credit_total, deliveriesTotal: cashCutData.deliveries_total, deliveriesCount: cashCutData.deliveries_count, returnsTotal: cashCutData.returns_total, returnsCount: cashCutData.returns_count, cancellationsTotal: cashCutData.cancellations_total, cancellationsCount: cashCutData.cancellations_count, cashInRegister: cashCutData.cash_in_register })
                     .then(() => setSuccess("Corte registrado e impreso ✅"))
                     .catch((err) => setSuccess(`Corte registrado. Error al imprimir: ${err}`));
                 })
                 .catch((err) => setError(String(err)));
             } else {
               // Reprint only (CX) — already registered
-              api.printCashCutReceipt({ totalSales: cashCutData.total_sales, transactions: cashCutData.transactions, cashTotal: cashCutData.cash_total, cardTotal: cashCutData.card_total, transferTotal: cashCutData.transfer_total, creditTotal: cashCutData.credit_total, deliveriesTotal: cashCutData.deliveries_total, deliveriesCount: cashCutData.deliveries_count, cashInRegister: cashCutData.cash_in_register })
+              api.printCashCutReceipt({ totalSales: cashCutData.total_sales, transactions: cashCutData.transactions, cashTotal: cashCutData.cash_total, cardTotal: cashCutData.card_total, transferTotal: cashCutData.transfer_total, creditTotal: cashCutData.credit_total, deliveriesTotal: cashCutData.deliveries_total, deliveriesCount: cashCutData.deliveries_count, returnsTotal: cashCutData.returns_total, returnsCount: cashCutData.returns_count, cancellationsTotal: cashCutData.cancellations_total, cancellationsCount: cashCutData.cancellations_count, cashInRegister: cashCutData.cash_in_register })
                 .then(() => setSuccess("Ticket reimpreso"))
                 .catch((err) => setError(String(err)));
             }

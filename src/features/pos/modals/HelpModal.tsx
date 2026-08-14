@@ -13,22 +13,11 @@ export function HelpModal({ show, onClose }: HelpModalProps) {
       <h2 className="text-lg font-bold text-foreground mb-4">Guía Rápida</h2>
       <div className="max-h-96 overflow-auto space-y-4 text-sm">
         <section>
-          <h3 className="font-bold text-primary mb-1">Productos rápidos</h3>
-          <div className="space-y-1 text-muted-foreground">
-            <p><span className="text-foreground font-mono">1</span> — Bolsa pequeña</p>
-            <p><span className="text-foreground font-mono">2</span> — Bolsa grande</p>
-            <p><span className="text-foreground font-mono">3</span> — Frutas y Verduras (pide monto)</p>
-            <p><span className="text-foreground font-mono">4</span> — Carnes (pide monto)</p>
-            <p><span className="text-foreground font-mono">5</span> — Pollo (pide monto)</p>
-            <p><span className="text-foreground font-mono">6</span> — Pescados (pide monto)</p>
-          </div>
-        </section>
-        <section>
           <h3 className="font-bold text-primary mb-1">Vender</h3>
           <div className="space-y-1 text-muted-foreground">
             <p><span className="text-foreground font-mono">{"{código}"}</span> — Agregar producto (escanear o escribir)</p>
             <p><span className="text-foreground font-mono">3*{"{código}"}</span> — Agregar 3 unidades</p>
-            <p><span className="text-foreground font-mono">$8500*{"{código}"}</span> — Agregar con precio mayor al del sistema</p>
+            <p><span className="text-foreground font-mono">8500**{"{código}"}</span> — Agregar con precio mayor al del sistema</p>
             <p className="text-xs text-warning">⚠️ Solo permite subir precio, no bajarlo</p>
             <p><span className="text-foreground font-mono">Escanear repetido</span> — Suma cantidad al mismo producto</p>
           </div>
@@ -48,9 +37,9 @@ export function HelpModal({ show, onClose }: HelpModalProps) {
           <h3 className="font-bold text-primary mb-1">Teclas de función</h3>
           <div className="space-y-1 text-muted-foreground">
             <p><span className="text-foreground font-mono">F3</span> — Eliminar producto seleccionado</p>
-            <p><span className="text-foreground font-mono">F4</span> — Cancelar venta (pide confirmación)</p>
+            <p><span className="text-foreground font-mono">F4</span> — Cancelar venta (requiere clave admin)</p>
             <p><span className="text-foreground font-mono">F5</span> — Buscar/asignar cliente (Tab para fiar)</p>
-            <p><span className="text-foreground font-mono">F6</span> — Modo devolución</p>
+            <p><span className="text-foreground font-mono">F6</span> — Modo devolución (requiere clave admin)</p>
             <p><span className="text-foreground font-mono">F7</span> — Abrir cajón de dinero</p>
             <p><span className="text-foreground font-mono">F8</span> — Historial del día (Enter para anular)</p>
             <p><span className="text-foreground font-mono">F9</span> — Reimprimir ticket (↑↓ + Enter)</p>
@@ -67,12 +56,12 @@ export function HelpModal({ show, onClose }: HelpModalProps) {
             <p><span className="text-foreground font-mono">pv nombre</span> — Buscar por nombre</p>
             <p><span className="text-foreground font-mono">CC</span> — Vista previa del cierre de caja (sin registrar)</p>
             <p><span className="text-foreground font-mono">CX2026-07-10</span> — Ver/reimprimir corte de una fecha</p>
-            <p><span className="text-foreground font-mono">EP</span> — Entrega parcial de efectivo</p>
-            <p><span className="text-foreground font-mono">EP5000</span> — Entrega de $5000 (monto directo)</p>
-            <p><span className="text-foreground font-mono">PP</span> — Pago a proveedor</p>
-            <p><span className="text-foreground font-mono">PP5000</span> — Pago a proveedor de $5000 (monto directo)</p>
+            <p><span className="text-foreground font-mono">EP</span> — Entrega parcial de efectivo (requiere clave admin)</p>
+            <p><span className="text-foreground font-mono">EP5000</span> — Entrega de $5000 (requiere clave admin)</p>
+            <p><span className="text-foreground font-mono">PP</span> — Pago a proveedor (requiere clave admin)</p>
+            <p><span className="text-foreground font-mono">PP5000</span> — Pago a proveedor de $5000 (requiere clave admin)</p>
             <p><span className="text-foreground font-mono">AB</span> — Abono a crédito de cliente</p>
-            <p><span className="text-foreground font-mono">AN5</span> — Anular venta #5</p>
+            <p><span className="text-foreground font-mono">AN5</span> — Anular venta #5 (requiere clave admin)</p>
           </div>
         </section>
         <section>

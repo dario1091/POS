@@ -14,3 +14,4 @@ export { ReprintModal } from "./ReprintModal";
 export { CancelSaleModal } from "./CancelSaleModal";
 export { PrintPromptModal } from "./PrintPromptModal";
 export { ConfirmCancelModal } from "./ConfirmCancelModal";
+export { ScaleModal } from "./ScaleModal";
