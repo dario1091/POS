@@ -13,6 +13,8 @@ export function HardwarePage() {
   const [businessAddress, setBusinessAddress] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [labelError, setLabelError] = useState("");
+  const [labelSuccess, setLabelSuccess] = useState("");
 
   useEffect(() => {
     loadConfig();
@@ -26,6 +28,13 @@ export function HardwarePage() {
       return () => clearTimeout(t);
     }
   }, [success]);
+
+  useEffect(() => {
+    if (labelSuccess) {
+      const t = setTimeout(() => setLabelSuccess(""), 3000);
+      return () => clearTimeout(t);
+    }
+  }, [labelSuccess]);
 
   const loadConfig = async () => {
     try {
@@ -93,33 +102,33 @@ export function HardwarePage() {
   };
 
   const saveLabelPrinter = async () => {
-    setError("");
+    setLabelError("");
     try {
       await api.configureLabelPrinter(labelPrinterPath);
-      setSuccess("Impresora de etiquetas configurada correctamente");
+      setLabelSuccess("Impresora de etiquetas configurada correctamente");
       await loadConfig();
     } catch (err) {
-      setError(String(err));
+      setLabelError(String(err));
     }
   };
 
   const handleTestLabelPrinter = async () => {
-    setError("");
+    setLabelError("");
     try {
       const msg = await api.testLabelPrinter();
-      setSuccess(msg);
+      setLabelSuccess(msg);
     } catch (err) {
-      setError(String(err));
+      setLabelError(String(err));
     }
   };
 
   const handleCalibrateLabelPrinter = async () => {
-    setError("");
+    setLabelError("");
     try {
       const msg = await api.calibrateLabelPrinter();
-      setSuccess(msg + " — La impresora avanzará algunas etiquetas durante la calibración.");
+      setLabelSuccess(msg + " — La impresora avanzará algunas etiquetas durante la calibración.");
     } catch (err) {
-      setError(String(err));
+      setLabelError(String(err));
     }
   };
 
@@ -247,6 +256,9 @@ export function HardwarePage() {
       <section className="mb-8 p-4 rounded-lg bg-card border border-border">
         <h2 className="text-lg font-semibold text-foreground mb-1">Impresora de Etiquetas</h2>
         <p className="text-xs text-muted-foreground mb-3">Para impresoras TSPL/TSC (ej. 4BARCODE 4B-2054TG). Protocolo diferente al de tickets.</p>
+
+        {labelError && <p className="text-sm text-destructive mb-3">{labelError}</p>}
+        {labelSuccess && <p className="text-sm text-success mb-3">{labelSuccess}</p>}
         <div className="space-y-3">
           <div>
             <label className="text-sm text-muted-foreground block mb-1">Dispositivo</label>

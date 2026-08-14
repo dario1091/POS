@@ -136,12 +136,20 @@ export const api = {
   quickCashCut: () => invoke<{
     total_sales: number; transactions: number; cash_total: number; card_total: number;
     transfer_total: number; credit_total: number; deliveries_total: number;
-    deliveries_count: number; cash_in_register: number; date: string;
+    deliveries_count: number; supplier_payments_total: number; supplier_payments_count: number;
+    supplier_payments: { supplier_name: string; amount: number; created_at: string }[];
+    returns_total: number; returns_count: number;
+    cancellations_total: number; cancellations_count: number;
+    cash_in_register: number; date: string;
   }>("quick_cash_cut"),
   getCashCutByDate: (date: string) => invoke<{
     total_sales: number; transactions: number; cash_total: number; card_total: number;
     transfer_total: number; credit_total: number; deliveries_total: number;
-    deliveries_count: number; cash_in_register: number; date: string;
+    deliveries_count: number; supplier_payments_total: number; supplier_payments_count: number;
+    supplier_payments: { supplier_name: string; amount: number; created_at: string }[];
+    returns_total: number; returns_count: number;
+    cancellations_total: number; cancellations_count: number;
+    cash_in_register: number; date: string;
   }>("get_cash_cut_by_date", { date }),
 
   // Print receipts
@@ -150,7 +158,8 @@ export const api = {
   printCashCutReceipt: (data: {
     totalSales: number; transactions: number; cashTotal: number; cardTotal: number;
     transferTotal: number; creditTotal: number; deliveriesTotal: number;
-    deliveriesCount: number; cashInRegister: number;
+    deliveriesCount: number; returnsTotal: number; returnsCount: number;
+    cancellationsTotal: number; cancellationsCount: number; cashInRegister: number;
   }) => invoke<void>("print_cash_cut_receipt", data),
 
   // Returns

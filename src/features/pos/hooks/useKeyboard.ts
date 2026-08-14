@@ -149,11 +149,11 @@ export function useKeyboard(options: UseKeyboardOptions) {
       return;
     }
 
-    // F4 - Cancel sale
+    // F4 - Cancel sale (requiere admin)
     if (e.key === "F4") {
       e.preventDefault();
       if (cart.length > 0) {
-        openConfirmCancel();
+        requireAdminAuth(() => openConfirmCancel());
       }
       return;
     }

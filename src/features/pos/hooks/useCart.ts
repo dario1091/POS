@@ -115,7 +115,6 @@ export function useCart() {
 
   const showChange = useCallback((amount: number) => {
     setChangeDisplay({ amount, visible: true });
-    setTimeout(() => setChangeDisplay({ amount: 0, visible: false }), 3000);
   }, []);
 
   return {

@@ -150,6 +150,8 @@ export const api = {
     transfer_total: number; credit_total: number; deliveries_total: number;
     deliveries_count: number; supplier_payments_total: number; supplier_payments_count: number;
     supplier_payments: { supplier_name: string; amount: number; created_at: string }[];
+    returns_total: number; returns_count: number;
+    cancellations_total: number; cancellations_count: number;
     cash_in_register: number; date: string;
   }>("quick_cash_cut"),
   getCashCutByDate: (date: string) => invoke<{
@@ -157,6 +159,8 @@ export const api = {
     transfer_total: number; credit_total: number; deliveries_total: number;
     deliveries_count: number; supplier_payments_total: number; supplier_payments_count: number;
     supplier_payments: { supplier_name: string; amount: number; created_at: string }[];
+    returns_total: number; returns_count: number;
+    cancellations_total: number; cancellations_count: number;
     cash_in_register: number; date: string;
   }>("get_cash_cut_by_date", { date }),
 
@@ -166,10 +170,11 @@ export const api = {
   printCashCutReceipt: (data: {
     totalSales: number; transactions: number; cashTotal: number; cardTotal: number;
     transferTotal: number; creditTotal: number; deliveriesTotal: number;
-    deliveriesCount: number; cashInRegister: number;
+    deliveriesCount: number; returnsTotal: number; returnsCount: number;
+    cancellationsTotal: number; cancellationsCount: number; cashInRegister: number;
   }) => invoke<void>("print_cash_cut_receipt", data),
-  printLabel: (lines: { text: string; size: string; alignment: string; bold: boolean }[], copies: number, barcode?: string) =>
-    invoke<void>("print_label", { lines, copies, barcode: barcode ?? null }),
+  printLabel: (lines: { text: string; size: string; alignment: string; bold: boolean }[], copies: number, barcode?: string, labelWidth?: number, labelHeight?: number, barcodeWidth?: number) =>
+    invoke<void>("print_label", { lines, copies, barcode: barcode ?? null, labelWidth: labelWidth ?? 55, labelHeight: labelHeight ?? 33, barcodeWidth: barcodeWidth ?? 4 }),
 
   // Label printer (TSPL)
   configureLabelPrinter: (devicePath: string) => invoke<void>("configure_label_printer", { devicePath }),

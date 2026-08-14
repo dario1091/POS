@@ -5,6 +5,8 @@ interface CashCutData {
   transfer_total: number; credit_total: number; deliveries_total: number;
   deliveries_count: number; supplier_payments_total: number; supplier_payments_count: number;
   supplier_payments: { supplier_name: string; amount: number; created_at: string }[];
+  returns_total: number; returns_count: number;
+  cancellations_total: number; cancellations_count: number;
   cash_in_register: number; date: string;
 }
 
@@ -76,6 +78,23 @@ export function CashCutModal({ show, data, mode, onConfirm, onClose }: CashCutMo
                 <span className="font-mono text-muted-foreground">${sp.amount.toFixed(2)}</span>
               </div>
             ))}
+          </div>
+        )}
+        {data.returns_count > 0 && (
+          <div className="border-t border-border pt-3 space-y-1">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Devoluciones ({data.returns_count}):</span>
+              <span className="font-mono text-destructive">-${data.returns_total.toFixed(2)}</span>
+            </div>
+          </div>
+        )}
+        {data.cancellations_count > 0 && (
+          <div className="border-t border-border pt-3 space-y-1">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Ventas anuladas ({data.cancellations_count}):</span>
+              <span className="font-mono text-muted-foreground">${data.cancellations_total.toFixed(2)}</span>
+            </div>
+            <p className="text-xs text-muted-foreground italic">No afectan efectivo (ya excluidas de ventas)</p>
           </div>
         )}
         <div className="border-t border-border pt-3">

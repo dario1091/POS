@@ -135,14 +135,27 @@ export function ProductsPage() {
     }
   };
 
-  const filteredProducts = search
-    ? products.filter(
-        (p) =>
-          p.name.toLowerCase().includes(search.toLowerCase()) ||
-          p.barcode?.includes(search) ||
-          p.id.toString() === search
-      )
-    : products;
+  const filteredProducts = (() => {
+    let result = [...products].sort((a, b) => a.id - b.id);
+    if (!search.trim()) return result;
+
+    const term = search.trim();
+
+    // #N → búsqueda exacta por referencia (ID)
+    const refMatch = term.match(/^#(\d+)$/);
+    if (refMatch) {
+      const id = parseInt(refMatch[1]);
+      return result.filter((p) => p.id === id);
+    }
+
+    // Puramente numérico → búsqueda por código de barras (contiene)
+    if (/^\d+$/.test(term)) {
+      return result.filter((p) => p.barcode?.includes(term));
+    }
+
+    // Texto → búsqueda por nombre
+    return result.filter((p) => p.name.toLowerCase().includes(term.toLowerCase()));
+  })();
 
   return (
     <div>
@@ -255,7 +268,7 @@ export function ProductsPage() {
       <div className="mb-4">
         <input
           type="text"
-          placeholder="Buscar por nombre, código de barras o referencia..."
+          placeholder="#ref | código de barras | nombre..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full max-w-md px-3 py-2 rounded-md bg-input border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"

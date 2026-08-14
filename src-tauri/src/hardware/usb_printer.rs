@@ -168,9 +168,8 @@ pub fn write_to_usb_printer(vendor_id: u16, product_id: u16, data: &[u8]) -> Res
         offset = end;
     }
 
-    // Release interface and re-attach kernel driver
+    // Release interface (don't re-attach kernel driver to avoid state conflicts)
     let _ = handle.release_interface(interface_num);
-    let _ = handle.attach_kernel_driver(interface_num);
 
     Ok(())
 }

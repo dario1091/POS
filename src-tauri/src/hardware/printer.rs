@@ -338,6 +338,10 @@ pub struct CashCutPrintData {
     pub credit_total: f64,
     pub deliveries_total: f64,
     pub deliveries_count: i64,
+    pub returns_total: f64,
+    pub returns_count: i64,
+    pub cancellations_total: f64,
+    pub cancellations_count: i64,
     pub cash_in_register: f64,
 }
 
@@ -475,6 +479,19 @@ impl Printer {
         if data.deliveries_count > 0 {
             buffer.extend_from_slice(format!("Entregas ({}): -${:.2}", data.deliveries_count, data.deliveries_total).as_bytes());
             buffer.push(LF);
+        }
+
+        if data.returns_count > 0 {
+            buffer.extend_from_slice(format!("Devoluciones ({}): -${:.2}", data.returns_count, data.returns_total).as_bytes());
+            buffer.push(LF);
+        }
+
+        if data.cancellations_count > 0 {
+            buffer.extend_from_slice(format!("Anulaciones ({}): ${:.2}", data.cancellations_count, data.cancellations_total).as_bytes());
+            buffer.push(LF);
+        }
+
+        if data.deliveries_count > 0 || data.returns_count > 0 || data.cancellations_count > 0 {
             buffer.extend_from_slice(b"------------------------------------------------");
             buffer.push(LF);
         }
