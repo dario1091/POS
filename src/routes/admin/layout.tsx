@@ -8,11 +8,11 @@ const adminOnlyItems = [
   { to: "/admin/products", label: "Productos" },
   { to: "/admin/categories", label: "Categorías" },
   { to: "/admin/users", label: "Usuarios" },
-  { to: "/admin/inventory", label: "Inventario" },
   { to: "/admin/network", label: "Red" },
 ];
 
 const sharedItems = [
+  { to: "/admin/inventory", label: "Inventario" },
   { to: "/admin/cashcut", label: "Corte de caja" },
   { to: "/admin/customers", label: "Clientes" },
   { to: "/admin/labels", label: "Etiquetas" },

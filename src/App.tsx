@@ -77,7 +77,7 @@ function AppRoutes() {
         <Route path="categories" element={<ProtectedRoute adminOnly><CategoriesPage /></ProtectedRoute>} />
         <Route path="customers" element={<CustomersPage />} />
         <Route path="users" element={<ProtectedRoute adminOnly><UsersPage /></ProtectedRoute>} />
-        <Route path="inventory" element={<ProtectedRoute adminOnly><InventoryPage /></ProtectedRoute>} />
+        <Route path="inventory" element={<InventoryPage />} />
         <Route path="hardware" element={<HardwarePage />} />
         <Route path="labels" element={<LabelsPage />} />
         <Route path="network" element={<ProtectedRoute adminOnly><NetworkPage /></ProtectedRoute>} />

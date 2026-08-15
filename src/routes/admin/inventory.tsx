@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { api } from "@/lib/api";
+import { useAuth } from "@/hooks/useAuth";
 import type { Product } from "@/lib/types";
 
 interface BulkItem {
@@ -13,6 +14,7 @@ interface BulkItem {
 }
 
 export function InventoryPage() {
+  const { user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [showBulkAdjust, setShowBulkAdjust] = useState(() => {
     const saved = sessionStorage.getItem("inventory_bulk_items");
@@ -30,6 +32,29 @@ export function InventoryPage() {
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const scanRef = useRef<HTMLInputElement>(null);
+
+  // Admin auth state
+  const [showAdminAuth, setShowAdminAuth] = useState(false);
+  const [adminPassword, setAdminPassword] = useState("");
+  const [adminAuthError, setAdminAuthError] = useState("");
+  const [adminAuthCallback, setAdminAuthCallback] = useState<(() => void) | null>(null);
+
+  const requireAdminAuth = (callback: () => void) => {
+    if (user?.role === "admin") { callback(); return; }
+    setAdminPassword("");
+    setAdminAuthError("");
+    setAdminAuthCallback(() => callback);
+    setShowAdminAuth(true);
+    setTimeout(() => document.getElementById("inv-admin-auth-input")?.focus(), 50);
+  };
+
+  const handleAdminAuth = async () => {
+    try {
+      const valid = await api.validateAdminPassword(adminPassword);
+      if (valid) { setShowAdminAuth(false); setAdminPassword(""); if (adminAuthCallback) adminAuthCallback(); }
+      else { setAdminAuthError("Clave incorrecta"); }
+    } catch (err) { setAdminAuthError(String(err)); }
+  };
 
   // CSV import state
   const [showCsvImport, setShowCsvImport] = useState(false);
@@ -301,9 +326,12 @@ export function InventoryPage() {
         <div className="flex gap-2">
           <button
             onClick={() => {
-              setShowCsvImport(!showCsvImport);
-              setShowBulkAdjust(false);
-              setShowAdjust(false);
+              if (showCsvImport) { setShowCsvImport(false); return; }
+              requireAdminAuth(() => {
+                setShowCsvImport(true);
+                setShowBulkAdjust(false);
+                setShowAdjust(false);
+              });
             }}
             className="px-4 py-2 rounded-md bg-success text-white text-sm font-medium hover:bg-success/90 transition-colors"
           >
@@ -311,14 +339,12 @@ export function InventoryPage() {
           </button>
           <button
             onClick={() => {
-              const closing = showBulkAdjust;
-              setShowBulkAdjust(!showBulkAdjust);
-              setShowAdjust(false);
-              setShowCsvImport(false);
-              if (closing) {
-                setBulkItems([]);
-                setReason("Ajuste de inventario");
-              }
+              if (showBulkAdjust) { setBulkItems([]); setReason("Ajuste de inventario"); setShowBulkAdjust(false); return; }
+              requireAdminAuth(() => {
+                setShowBulkAdjust(true);
+                setShowAdjust(false);
+                setShowCsvImport(false);
+              });
             }}
             className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
           >
@@ -326,9 +352,12 @@ export function InventoryPage() {
           </button>
           <button
             onClick={() => {
-              setShowAdjust(!showAdjust);
-              setShowBulkAdjust(false);
-              setShowCsvImport(false);
+              if (showAdjust) { setShowAdjust(false); return; }
+              requireAdminAuth(() => {
+                setShowAdjust(true);
+                setShowBulkAdjust(false);
+                setShowCsvImport(false);
+              });
             }}
             className="px-4 py-2 rounded-md bg-muted text-foreground text-sm font-medium hover:bg-muted/80 transition-colors"
           >
@@ -730,6 +759,41 @@ export function InventoryPage() {
                 </span>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Admin auth modal */}
+      {showAdminAuth && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={(e) => { if (e.target === e.currentTarget) { setShowAdminAuth(false); setAdminPassword(""); } }}>
+          <div className="bg-card border border-border rounded-lg p-6 w-full max-w-sm shadow-2xl">
+            <h2 className="text-lg font-bold text-foreground mb-2">Clave de administrador</h2>
+            <p className="text-sm text-muted-foreground mb-4">Esta acción requiere autorización</p>
+            {adminAuthError && <p className="text-sm text-destructive mb-3">{adminAuthError}</p>}
+            <input
+              id="inv-admin-auth-input"
+              type="password"
+              placeholder="Contraseña admin"
+              value={adminPassword}
+              onChange={(e) => { setAdminPassword(e.target.value); setAdminAuthError(""); }}
+              onKeyDown={(e) => { if (e.key === "Enter") handleAdminAuth(); }}
+              className="w-full px-4 py-3 rounded-md bg-input border border-border text-foreground text-lg mb-3 focus:outline-none focus:ring-2 focus:ring-ring"
+              autoFocus
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={handleAdminAuth}
+                className="flex-1 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+              >
+                Confirmar
+              </button>
+              <button
+                onClick={() => { setShowAdminAuth(false); setAdminPassword(""); }}
+                className="flex-1 py-2 rounded-md bg-secondary text-secondary-foreground text-sm font-medium hover:bg-secondary/80 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
           </div>
         </div>
       )}
