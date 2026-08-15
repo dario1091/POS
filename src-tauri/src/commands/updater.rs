@@ -12,9 +12,26 @@ pub struct UpdateInfo {
     pub download_url: Option<String>,
 }
 
+/// Detect if system is rpm-based (Fedora/RHEL) or deb-based (Debian/Ubuntu)
+fn detect_pkg_type() -> &'static str {
+    if let Ok(content) = std::fs::read_to_string("/etc/os-release") {
+        for line in content.lines() {
+            if let Some(id) = line.strip_prefix("ID=") {
+                let id = id.trim_matches('"');
+                match id {
+                    "fedora" | "rhel" | "centos" | "rocky" | "alma" => return "rpm",
+                    _ => return "deb",
+                }
+            }
+        }
+    }
+    "deb"
+}
+
 #[tauri::command]
 pub async fn check_for_updates() -> Result<UpdateInfo, String> {
     let url = format!("https://api.github.com/repos/{}/releases/latest", REPO);
+    let pkg_type = detect_pkg_type();
 
     let client = reqwest::Client::new();
     let response = client
@@ -45,7 +62,7 @@ pub async fn check_for_updates() -> Result<UpdateInfo, String> {
             assets.iter().find(|a| {
                 a["name"]
                     .as_str()
-                    .map(|n| n.ends_with(".deb"))
+                    .map(|n| n.ends_with(&format!(".{}", pkg_type)))
                     .unwrap_or(false)
             })
         })
@@ -64,7 +81,8 @@ pub async fn check_for_updates() -> Result<UpdateInfo, String> {
 
 #[tauri::command]
 pub async fn install_update(download_url: String) -> Result<String, String> {
-    // Download .deb to tmp
+    let pkg_type = detect_pkg_type();
+
     let client = reqwest::Client::new();
     let response = client
         .get(&download_url)
@@ -78,19 +96,26 @@ pub async fn install_update(download_url: String) -> Result<String, String> {
     }
 
     let bytes = response.bytes().await.map_err(|e| e.to_string())?;
-    let tmp_path = "/tmp/pos-system-update.deb";
+    let tmp_path = format!("/tmp/pos-system-update.{}", pkg_type);
 
-    std::fs::write(tmp_path, &bytes)
+    std::fs::write(&tmp_path, &bytes)
         .map_err(|e| format!("Error guardando archivo: {}", e))?;
 
     // Install using pkexec (shows password dialog)
-    let output = Command::new("pkexec")
-        .args(["dpkg", "-i", tmp_path])
-        .output()
-        .map_err(|e| format!("Error ejecutando instalador: {}", e))?;
+    let output = if pkg_type == "rpm" {
+        Command::new("pkexec")
+            .args(["dnf", "install", "-y", &tmp_path])
+            .output()
+            .map_err(|e| format!("Error ejecutando instalador: {}", e))?
+    } else {
+        Command::new("pkexec")
+            .args(["apt", "install", "-y", &tmp_path])
+            .output()
+            .map_err(|e| format!("Error ejecutando instalador: {}", e))?
+    };
 
     // Clean up
-    let _ = std::fs::remove_file(tmp_path);
+    let _ = std::fs::remove_file(&tmp_path);
 
     if output.status.success() {
         Ok("Actualización instalada. Reinicia la aplicación.".to_string())
@@ -102,12 +127,10 @@ pub async fn install_update(download_url: String) -> Result<String, String> {
 
 #[tauri::command]
 pub fn restart_app(app: tauri::AppHandle) -> Result<(), String> {
-    // Try multiple approaches to find and relaunch
     let exe_path = std::env::current_exe()
         .map(|p| p.display().to_string())
         .unwrap_or_else(|_| "pos-system".to_string());
 
-    // Spawn detached process that waits then relaunches
     std::process::Command::new("sh")
         .arg("-c")
         .arg(format!("sleep 1; nohup '{}' > /dev/null 2>&1 &", exe_path))
@@ -116,7 +139,6 @@ pub fn restart_app(app: tauri::AppHandle) -> Result<(), String> {
         .spawn()
         .map_err(|e| format!("Error: {}", e))?;
 
-    // Exit current instance
     std::process::exit(0);
 }
 
