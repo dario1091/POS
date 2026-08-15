@@ -40,3 +40,25 @@ pub fn set_backup_config(config: BackupConfig, state: State<'_, AppState>) -> Re
         .unwrap_or(state.config_path.as_path());
     config.save(config_dir)
 }
+
+#[tauri::command]
+pub fn copy_backup_to_desktop(filename: String, state: State<'_, AppState>) -> Result<String, String> {
+    let backup_dir = state.config_path.parent()
+        .unwrap_or(state.config_path.as_path())
+        .join("backups");
+
+    let source = backup_dir.join(&filename);
+    if !source.exists() {
+        return Err(format!("Backup no encontrado: {}", filename));
+    }
+
+    // Get desktop path
+    let desktop = dirs::desktop_dir()
+        .ok_or("No se pudo determinar la ruta del Escritorio")?;
+
+    let dest = desktop.join(&filename);
+    std::fs::copy(&source, &dest)
+        .map_err(|e| format!("Error copiando al escritorio: {}", e))?;
+
+    Ok(dest.to_string_lossy().to_string())
+}

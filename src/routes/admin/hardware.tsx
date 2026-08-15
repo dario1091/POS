@@ -545,7 +545,21 @@ function BackupSection() {
                     <span className="text-foreground font-mono text-xs">{b.filename}</span>
                     <span className="text-muted-foreground text-xs ml-2">{b.created_at}</span>
                   </div>
-                  <span className="text-muted-foreground text-xs">{formatSize(b.size_bytes)}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground text-xs">{formatSize(b.size_bytes)}</span>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const dest = await api.copyBackupToDesktop(b.filename);
+                          setBackupSuccess(`Copiado al escritorio: ${dest}`);
+                        } catch (err) { setBackupError(String(err)); }
+                      }}
+                      className="px-2 py-0.5 rounded text-xs bg-primary/20 text-primary hover:bg-primary/30 transition-colors"
+                      title="Copiar al escritorio"
+                    >
+                      📋 Escritorio
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
