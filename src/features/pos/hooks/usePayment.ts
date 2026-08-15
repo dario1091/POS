@@ -38,7 +38,7 @@ export function usePayment(options: UsePaymentOptions) {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentMode, setPaymentMode] = useState<"efectivo" | "otro" | "mixto">("efectivo");
   const [cashAmount, setCashAmount] = useState("");
-  const [otherMethod, setOtherMethod] = useState<"tarjeta" | "transferencia">("tarjeta");
+  const [otherMethod, setOtherMethod] = useState<"tarjeta" | "transferencia">("transferencia");
   const [otherAmount, setOtherAmount] = useState("");
   const [paymentReference, setPaymentReference] = useState("");
 
@@ -47,7 +47,7 @@ export function usePayment(options: UsePaymentOptions) {
     setOtherAmount("");
     setPaymentReference("");
     setPaymentMode("efectivo");
-    setOtherMethod("tarjeta");
+    setOtherMethod("transferencia");
   }, []);
 
   const finalizeSaleWithPayments = useCallback(async (payments: PaymentEntry[]) => {

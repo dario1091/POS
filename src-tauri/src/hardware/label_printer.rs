@@ -43,18 +43,17 @@ impl LabelPrinter {
     }
 
     /// Print label using TSPL protocol
-    pub fn print_label(&self, lines: &[TsplLabelLine], copies: u32, barcode: Option<&str>, label_width_mm: u32, label_height_mm: u32, barcode_width: u32) -> Result<(), String> {
-        // Reset printer state before sending the job to avoid buffer stuck issues
-        self.write_to_device(b"INITIALPRINTER\r\n")?;
-        std::thread::sleep(std::time::Duration::from_millis(200));
-
-        let gap_mm: u32 = 2;
+    pub fn print_label(&self, lines: &[TsplLabelLine], copies: u32, barcode: Option<&str>, label_width_mm: u32, label_height_mm: u32, barcode_width: u32, sensor_type: &str) -> Result<(), String> {
         let label_width_dots: u32 = label_width_mm * 8;
         let margin_x: u32 = 5;
 
         let mut cmd = String::new();
         cmd.push_str(&format!("SIZE {} mm, {} mm\r\n", label_width_mm, label_height_mm));
-        cmd.push_str(&format!("GAP {} mm, 0 mm\r\n", gap_mm));
+        if sensor_type == "gap" {
+            cmd.push_str("GAP 2 mm, 0 mm\r\n");
+        } else {
+            cmd.push_str("BLINE 2 mm, 0 mm\r\n");
+        }
         cmd.push_str("DIRECTION 1\r\n");
         cmd.push_str("CLS\r\n");
 
@@ -142,10 +141,6 @@ impl LabelPrinter {
 
     /// Print a test label
     pub fn print_test(&self) -> Result<(), String> {
-        // Reset printer state before test
-        self.write_to_device(b"INITIALPRINTER\r\n")?;
-        std::thread::sleep(std::time::Duration::from_millis(200));
-
         let test_lines = vec![
             TsplLabelLine {
                 text: "PRUEBA".to_string(),
@@ -160,6 +155,6 @@ impl LabelPrinter {
                 bold: false,
             },
         ];
-        self.print_label(&test_lines, 1, Some("1234567890"), 55, 33, 3)
+        self.print_label(&test_lines, 1, Some("1234567890"), 55, 33, 3, "bline")
     }
 }

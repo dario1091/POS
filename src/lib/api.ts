@@ -178,6 +178,7 @@ export const api = {
 
   // Label printer (TSPL)
   configureLabelPrinter: (devicePath: string) => invoke<void>("configure_label_printer", { devicePath }),
+  configureLabelSensor: (sensorType: string) => invoke<void>("configure_label_sensor", { sensorType }),
   testLabelPrinter: () => invoke<string>("test_label_printer"),
   calibrateLabelPrinter: () => invoke<string>("calibrate_label_printer"),
   listLabelPrinters: () => invoke<{ path: string; label: string }[]>("list_label_printers"),

@@ -132,7 +132,7 @@ export function useKeyboard(options: UseKeyboardOptions) {
       const inputAmount = parseFloat(command.trim());
 
       if (!isNaN(inputAmount) && inputAmount > 0) {
-        handleQuickPay("tarjeta", inputAmount);
+        handleQuickPay("transferencia", inputAmount);
         setCommand("");
       } else if (command.trim() === "") {
         openPaymentModal("otro");

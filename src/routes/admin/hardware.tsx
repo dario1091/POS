@@ -7,6 +7,7 @@ export function HardwarePage() {
   const [printerPath, setPrinterPath] = useState("");
   const [labelPrinterPath, setLabelPrinterPath] = useState("");
   const [labelPrinters, setLabelPrinters] = useState<{ path: string; label: string }[]>([]);
+  const [labelSensorType, setLabelSensorType] = useState("bline");
   const [scalePort, setScalePort] = useState("");
   const [scaleBaud, setScaleBaud] = useState("9600");
   const [businessName, setBusinessName] = useState("");
@@ -41,6 +42,7 @@ export function HardwarePage() {
       const data = await api.getHardwareConfig();
       setPrinterPath(data.printer_device || "");
       setLabelPrinterPath(data.label_printer_device || "");
+      setLabelSensorType(data.label_sensor_type || "bline");
       setScalePort(data.scale_port || "");
       setScaleBaud(data.scale_baud || "9600");
       setBusinessName(data.business_name || "");
@@ -290,6 +292,25 @@ export function HardwarePage() {
               placeholder="O escribe manualmente: 2d84:4cfb"
               className="w-full mt-2 px-3 py-2 rounded-md bg-input border border-border text-foreground text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring"
             />
+          </div>
+          <div>
+            <label className="text-sm text-muted-foreground block mb-1">Tipo de etiqueta</label>
+            <select
+              value={labelSensorType}
+              onChange={async (e) => {
+                const val = e.target.value;
+                setLabelSensorType(val);
+                try {
+                  await api.configureLabelSensor(val);
+                  setLabelSuccess(`Tipo de etiqueta: ${val === "bline" ? "Marca negra" : "Gap transparente"}`);
+                } catch (err) { setLabelError(String(err)); }
+              }}
+              className="w-full px-3 py-2 rounded-md bg-input border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <option value="bline">Marca negra (BLINE)</option>
+              <option value="gap">Gap transparente (GAP)</option>
+            </select>
+            <p className="text-xs text-muted-foreground mt-1">Marca negra: franja negra en el reverso. Gap: espacio transparente entre etiquetas.</p>
           </div>
           <div className="flex gap-2">
             <button

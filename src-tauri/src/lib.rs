@@ -179,6 +179,7 @@ pub fn run() {
             commands::hardware::print_cash_cut_receipt,
             commands::hardware::print_label,
             commands::hardware::configure_label_printer,
+            commands::hardware::configure_label_sensor,
             commands::hardware::test_label_printer,
             commands::hardware::calibrate_label_printer,
             commands::hardware::list_label_printers,

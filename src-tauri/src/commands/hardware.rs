@@ -326,8 +326,12 @@ pub fn print_cash_cut_receipt(
 #[tauri::command]
 pub fn print_label(lines: Vec<TsplLabelLine>, copies: u32, barcode: Option<String>, label_width: Option<u32>, label_height: Option<u32>, barcode_width: Option<u32>, state: State<'_, AppState>) -> Result<(), String> {
     let device_path = get_label_printer_path(&state)?;
+    let conn = state.db.get().map_err(|e| e.to_string())?;
+    let sensor_type: String = conn
+        .query_row("SELECT value FROM config WHERE key = 'label_sensor_type'", [], |row| row.get(0))
+        .unwrap_or_else(|_| "bline".to_string());
     let printer = LabelPrinter::new(&device_path);
-    printer.print_label(&lines, copies, barcode.as_deref(), label_width.unwrap_or(55), label_height.unwrap_or(33), barcode_width.unwrap_or(4))
+    printer.print_label(&lines, copies, barcode.as_deref(), label_width.unwrap_or(55), label_height.unwrap_or(33), barcode_width.unwrap_or(4), &sensor_type)
 }
 
 #[tauri::command]
@@ -341,6 +345,19 @@ pub fn configure_label_printer(device_path: String, state: State<'_, AppState>) 
 }
 
 #[tauri::command]
+pub fn configure_label_sensor(sensor_type: String, state: State<'_, AppState>) -> Result<(), String> {
+    if sensor_type != "gap" && sensor_type != "bline" {
+        return Err("Tipo de sensor inválido. Usa 'gap' o 'bline'".to_string());
+    }
+    let conn = state.db.get().map_err(|e| e.to_string())?;
+    conn.execute(
+        "INSERT OR REPLACE INTO config (key, value) VALUES ('label_sensor_type', ?1)",
+        params![sensor_type],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
 pub fn calibrate_label_printer(state: State<'_, AppState>) -> Result<String, String> {
     let device_key = get_label_printer_path(&state)?;
     let parts: Vec<&str> = device_key.split(':').collect();
@@ -349,13 +366,19 @@ pub fn calibrate_label_printer(state: State<'_, AppState>) -> Result<String, Str
     let product_id = u16::from_str_radix(parts.get(1).unwrap_or(&"0"), 16)
         .map_err(|_| "Device key inválido".to_string())?;
 
-    let cmd = b"INITIALPRINTER\r\n";
-    crate::hardware::usb_printer::write_to_usb_printer(vendor_id, product_id, cmd)?;
-    std::thread::sleep(std::time::Duration::from_millis(300));
+    let conn = state.db.get().map_err(|e| e.to_string())?;
+    let sensor_type: String = conn
+        .query_row("SELECT value FROM config WHERE key = 'label_sensor_type'", [], |row| row.get(0))
+        .unwrap_or_else(|_| "bline".to_string());
 
-    let calibrate_cmd = b"GAPDETECT\r\n";
-    crate::hardware::usb_printer::write_to_usb_printer(vendor_id, product_id, calibrate_cmd)?;
-    Ok("Calibración iniciada — la impresora avanzará etiquetas para detectar el gap".to_string())
+    let (cmd, msg): (&[u8], &str) = if sensor_type == "gap" {
+        (b"GAPDETECT\r\n", "Calibración iniciada (GAP) — la impresora avanzará etiquetas para detectar el espacio transparente")
+    } else {
+        (b"BLINEDETECT\r\n", "Calibración iniciada (BLINE) — la impresora avanzará etiquetas para detectar la marca negra")
+    };
+
+    crate::hardware::usb_printer::write_to_usb_printer(vendor_id, product_id, cmd)?;
+    Ok(msg.to_string())
 }
 
 #[tauri::command]

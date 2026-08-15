@@ -45,12 +45,12 @@ export function ReportsPage() {
       <div className="flex items-center gap-3 mb-6">
         <div>
           <label className="text-xs text-muted-foreground block mb-1">Desde</label>
-          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
+          <input type="date" value={from} onChange={(e) => { setFrom(e.target.value); e.target.blur(); }}
             className="px-3 py-2 rounded-md bg-input border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
         </div>
         <div>
           <label className="text-xs text-muted-foreground block mb-1">Hasta</label>
-          <input type="date" value={to} onChange={(e) => setTo(e.target.value)}
+          <input type="date" value={to} onChange={(e) => { setTo(e.target.value); e.target.blur(); }}
             className="px-3 py-2 rounded-md bg-input border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
         </div>
         <button onClick={loadReports}
