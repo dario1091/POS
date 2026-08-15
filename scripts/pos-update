@@ -1,25 +1,40 @@
 #!/bin/bash
 # pos-update: Actualiza POS System desde GitHub Releases
 # Instalar: sudo cp pos-update /usr/local/bin/ && sudo chmod +x /usr/local/bin/pos-update
+# Detecta automáticamente si es Debian/Ubuntu (.deb) o Fedora/RHEL (.rpm)
 
-REPO="dario1091/POS"  # GitHub repo
+REPO="dario1091/POS"
 
 echo "🔄 Buscando última versión de POS System..."
 
-# Get latest release download URL
+# Detect distro
+if command -v dpkg &> /dev/null; then
+  PKG_TYPE="deb"
+  INSTALL_CMD="sudo dpkg -i"
+elif command -v rpm &> /dev/null; then
+  PKG_TYPE="rpm"
+  INSTALL_CMD="sudo dnf install -y"
+else
+  echo "❌ Sistema no soportado. Se requiere dpkg (Debian/Ubuntu) o dnf (Fedora/RHEL)."
+  exit 1
+fi
+
+echo "   Distro detectada: $PKG_TYPE"
+
+# Get latest release download URL for the correct package type
 LATEST_URL=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" \
-  | grep "browser_download_url.*\.deb" \
+  | grep "browser_download_url.*\.$PKG_TYPE" \
   | cut -d '"' -f 4)
 
 if [ -z "$LATEST_URL" ]; then
-  echo "❌ No se encontró ninguna release. Verifica el repo: $REPO"
+  echo "❌ No se encontró paquete .$PKG_TYPE en la última release."
+  echo "   Verifica el repo: $REPO"
   exit 1
 fi
 
 FILENAME=$(basename "$LATEST_URL")
 echo "📦 Descargando: $FILENAME"
 
-# Download
 wget -q --show-progress -O "/tmp/$FILENAME" "$LATEST_URL"
 
 if [ $? -ne 0 ]; then
@@ -27,14 +42,13 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-# Install
 echo "📥 Instalando..."
-sudo dpkg -i "/tmp/$FILENAME"
+$INSTALL_CMD "/tmp/$FILENAME"
 
 if [ $? -eq 0 ]; then
   echo "✅ POS System actualizado correctamente."
   echo "   Reinicia la aplicación para usar la nueva versión."
-  rm "/tmp/$FILENAME"
+  rm -f "/tmp/$FILENAME"
 else
   echo "❌ Error en la instalación."
   exit 1
