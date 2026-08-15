@@ -7,23 +7,42 @@ REPO="dario1091/POS"
 
 echo "🔄 Buscando última versión de POS System..."
 
-# Detect distro
-if command -v dpkg &> /dev/null; then
-  PKG_TYPE="deb"
-  INSTALL_CMD="sudo dpkg -i"
-elif command -v rpm &> /dev/null; then
-  PKG_TYPE="rpm"
-  INSTALL_CMD="sudo dnf install -y"
+# Detect distro using /etc/os-release (reliable across all Linux)
+if [ -f /etc/os-release ]; then
+  . /etc/os-release
+  case "$ID" in
+    fedora|rhel|centos|rocky|alma)
+      PKG_TYPE="rpm"
+      INSTALL_CMD="sudo dnf install -y"
+      ;;
+    debian|ubuntu|linuxmint|pop)
+      PKG_TYPE="deb"
+      INSTALL_CMD="sudo apt install -y"
+      ;;
+    *)
+      # Fallback: check package manager
+      if command -v dnf &> /dev/null; then
+        PKG_TYPE="rpm"
+        INSTALL_CMD="sudo dnf install -y"
+      elif command -v apt &> /dev/null; then
+        PKG_TYPE="deb"
+        INSTALL_CMD="sudo apt install -y"
+      else
+        echo "❌ Sistema no soportado: $ID"
+        exit 1
+      fi
+      ;;
+  esac
 else
-  echo "❌ Sistema no soportado. Se requiere dpkg (Debian/Ubuntu) o dnf (Fedora/RHEL)."
+  echo "❌ No se pudo detectar el sistema operativo."
   exit 1
 fi
 
-echo "   Distro detectada: $PKG_TYPE"
+echo "   Sistema: $ID → paquete .$PKG_TYPE"
 
 # Get latest release download URL for the correct package type
 LATEST_URL=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" \
-  | grep "browser_download_url.*\.$PKG_TYPE" \
+  | grep "browser_download_url.*\.$PKG_TYPE\"" \
   | cut -d '"' -f 4)
 
 if [ -z "$LATEST_URL" ]; then
