@@ -6,7 +6,7 @@ on:
       - 'v*'
 
 jobs:
-  build-linux:
+  build-deb:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -37,12 +37,8 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Build Tauri app
-        run: npm run tauri build
-
-      - name: Get version from tag
-        id: version
-        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+      - name: Build Tauri app (.deb)
+        run: npm run tauri build -- --bundles deb
 
       - name: Upload .deb artifact
         uses: actions/upload-artifact@v4
@@ -50,11 +46,66 @@ jobs:
           name: pos-system-linux-deb
           path: src-tauri/target/release/bundle/deb/*.deb
 
+  build-rpm:
+    runs-on: ubuntu-22.04
+    container:
+      image: fedora:40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          dnf install -y \
+            gcc gcc-c++ make curl wget \
+            webkit2gtk4.1-devel gtk3-devel \
+            libappindicator-gtk3-devel librsvg2-devel \
+            pkg-config openssl-devel systemd-devel \
+            rpm-build
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build Tauri app (.rpm)
+        run: |
+          source $HOME/.cargo/env
+          npm run tauri build -- --bundles rpm
+
+      - name: Upload .rpm artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pos-system-linux-rpm
+          path: src-tauri/target/release/bundle/rpm/*.rpm
+
+  release:
+    runs-on: ubuntu-22.04
+    needs: [build-deb, build-rpm]
+    steps:
+      - name: Download .deb artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: pos-system-linux-deb
+          path: artifacts/
+
+      - name: Download .rpm artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: pos-system-linux-rpm
+          path: artifacts/
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            src-tauri/target/release/bundle/deb/*.deb
+          files: artifacts/*
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
