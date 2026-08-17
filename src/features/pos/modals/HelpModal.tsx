@@ -46,6 +46,7 @@ export function HelpModal({ show, onClose }: HelpModalProps) {
             <p><span className="text-foreground font-mono">F12</span> — Esta ayuda</p>
             <p><span className="text-foreground font-mono">Ctrl+N</span> — Nueva pestaña de venta (máx 3)</p>
             <p><span className="text-foreground font-mono">Ctrl+1/2/3</span> — Cambiar pestaña</p>
+            <p><span className="text-foreground font-mono">Ctrl+P</span> — Volver al POS desde menú admin</p>
             <p><span className="text-foreground font-mono">↑↓</span> — Navegar productos en lista</p>
           </div>
         </section>
