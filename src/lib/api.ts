@@ -152,6 +152,7 @@ export const api = {
     supplier_payments: { supplier_name: string; amount: number; created_at: string }[];
     returns_total: number; returns_count: number;
     cancellations_total: number; cancellations_count: number;
+    credit_payments_cash: number; credit_payments_count: number;
     cash_in_register: number; date: string;
   }>("quick_cash_cut"),
   getCashCutByDate: (date: string) => invoke<{
@@ -161,6 +162,7 @@ export const api = {
     supplier_payments: { supplier_name: string; amount: number; created_at: string }[];
     returns_total: number; returns_count: number;
     cancellations_total: number; cancellations_count: number;
+    credit_payments_cash: number; credit_payments_count: number;
     cash_in_register: number; date: string;
   }>("get_cash_cut_by_date", { date }),
 

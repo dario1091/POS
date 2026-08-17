@@ -7,6 +7,7 @@ interface CashCutData {
   supplier_payments: { supplier_name: string; amount: number; created_at: string }[];
   returns_total: number; returns_count: number;
   cancellations_total: number; cancellations_count: number;
+  credit_payments_cash: number; credit_payments_count: number;
   cash_in_register: number; date: string;
 }
 
@@ -95,6 +96,14 @@ export function CashCutModal({ show, data, mode, onConfirm, onClose }: CashCutMo
               <span className="font-mono text-muted-foreground">${data.cancellations_total.toFixed(2)}</span>
             </div>
             <p className="text-xs text-muted-foreground italic">No afectan efectivo (ya excluidas de ventas)</p>
+          </div>
+        )}
+        {data.credit_payments_count > 0 && (
+          <div className="border-t border-border pt-3 space-y-1">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Abonos a crédito en efectivo ({data.credit_payments_count}):</span>
+              <span className="font-mono text-success">+${data.credit_payments_cash.toFixed(2)}</span>
+            </div>
           </div>
         )}
         <div className="border-t border-border pt-3">

@@ -15,6 +15,7 @@ interface UseCommandsOptions {
     supplier_payments: { supplier_name: string; amount: number; created_at: string }[];
     returns_total: number; returns_count: number;
     cancellations_total: number; cancellations_count: number;
+    credit_payments_cash: number; credit_payments_count: number;
     cash_in_register: number; date: string;
   }, mode: "preview" | "reprint") => void;
   openCreditPay: () => void;

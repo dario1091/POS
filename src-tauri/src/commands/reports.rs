@@ -420,6 +420,8 @@ pub struct QuickCashCutResult {
     pub returns_count: i64,
     pub cancellations_total: f64,
     pub cancellations_count: i64,
+    pub credit_payments_cash: f64,
+    pub credit_payments_count: i64,
     pub cash_in_register: f64,
     pub date: String,
 }
@@ -611,7 +613,13 @@ pub fn quick_cash_cut(state: State<'_, AppState>) -> Result<QuickCashCutResult, 
         [], |row| Ok((row.get(0)?, row.get(1)?)),
     ).map_err(|e| e.to_string())?;
 
-    let cash_in_register = cash_total - deliveries_total - supplier_payments_total - returns_total;
+    // Abonos a crédito pagados en efectivo (dinero que entra a caja)
+    let (credit_payments_cash, credit_payments_count): (f64, i64) = conn.query_row(
+        &format!("SELECT COALESCE(SUM(amount), 0), COUNT(*) FROM credit_payments WHERE payment_method = 'efectivo' AND {}", time_filter_simple),
+        [], |row| Ok((row.get(0)?, row.get(1)?)),
+    ).map_err(|e| e.to_string())?;
+
+    let cash_in_register = cash_total - deliveries_total - supplier_payments_total - returns_total + credit_payments_cash;
 
     Ok(QuickCashCutResult {
         total_sales,
@@ -629,6 +637,8 @@ pub fn quick_cash_cut(state: State<'_, AppState>) -> Result<QuickCashCutResult, 
         returns_count,
         cancellations_total,
         cancellations_count,
+        credit_payments_cash,
+        credit_payments_count,
         cash_in_register,
         date: today,
     })
@@ -706,6 +716,11 @@ pub fn get_cash_cut_by_date(date: String, state: State<'_, AppState>) -> Result<
         params![date], |row| Ok((row.get(0)?, row.get(1)?)),
     ).unwrap_or((0.0, 0));
 
+    let (credit_payments_cash, credit_payments_count): (f64, i64) = conn.query_row(
+        "SELECT COALESCE(SUM(amount), 0), COUNT(*) FROM credit_payments WHERE payment_method = 'efectivo' AND date(created_at) = date(?1)",
+        params![date], |row| Ok((row.get(0)?, row.get(1)?)),
+    ).unwrap_or((0.0, 0));
+
     Ok(QuickCashCutResult {
         total_sales: cut.total_sales,
         transactions: cut.transactions,
@@ -722,6 +737,8 @@ pub fn get_cash_cut_by_date(date: String, state: State<'_, AppState>) -> Result<
         returns_count,
         cancellations_total,
         cancellations_count,
+        credit_payments_cash,
+        credit_payments_count,
         cash_in_register: cut.expected_cash,
         date,
     })
