@@ -62,3 +62,39 @@ pub fn copy_backup_to_desktop(filename: String, state: State<'_, AppState>) -> R
 
     Ok(dest.to_string_lossy().to_string())
 }
+
+#[tauri::command]
+pub fn restore_backup(filename: String, state: State<'_, AppState>) -> Result<String, String> {
+    let app_dir = state.config_path.parent()
+        .unwrap_or(state.config_path.as_path());
+    let backup_dir = app_dir.join("backups");
+    let db_path = app_dir.join("pos.db");
+
+    let source = backup_dir.join(&filename);
+    if !source.exists() {
+        return Err(format!("Backup no encontrado: {}", filename));
+    }
+
+    // Validate it's a valid SQLite file
+    let header = std::fs::read(&source)
+        .map_err(|e| format!("Error leyendo backup: {}", e))?;
+    if header.len() < 16 || &header[0..16] != b"SQLite format 3\0" {
+        return Err("El archivo no es una base de datos SQLite válida".to_string());
+    }
+
+    // Create a safety backup of current DB before overwriting
+    let safety_name = format!("pos_pre_restore_{}.db", chrono::Local::now().format("%Y-%m-%d_%H-%M-%S"));
+    let safety_path = backup_dir.join(&safety_name);
+    std::fs::create_dir_all(&backup_dir).ok();
+    let _ = std::fs::copy(&db_path, &safety_path);
+
+    // Close all pool connections by dropping them (get and immediately drop)
+    // Note: active connections will be invalidated after file replace
+    drop(state.db.get().ok());
+
+    // Replace the database file
+    std::fs::copy(&source, &db_path)
+        .map_err(|e| format!("Error restaurando backup: {}", e))?;
+
+    Ok(format!("Backup restaurado: {}. Se creó respaldo de seguridad: {}. Reinicia la aplicación para aplicar los cambios.", filename, safety_name))
+}

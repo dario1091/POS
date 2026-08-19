@@ -212,4 +212,5 @@ export const api = {
   getBackupConfig: () => invoke<{ enabled: boolean; interval_hours: number; max_backups: number; backup_path: string }>("get_backup_config"),
   setBackupConfig: (config: { enabled: boolean; interval_hours: number; max_backups: number; backup_path: string }) => invoke<void>("set_backup_config", { config }),
   copyBackupToDesktop: (filename: string) => invoke<string>("copy_backup_to_desktop", { filename }),
+  restoreBackup: (filename: string) => invoke<string>("restore_backup", { filename }),
 };

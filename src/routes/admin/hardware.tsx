@@ -559,6 +559,20 @@ function BackupSection() {
                     >
                       📋 Escritorio
                     </button>
+                    <button
+                      onClick={async () => {
+                        if (!confirm(`¿Restaurar backup "${b.filename}"?\n\nSe creará un respaldo de seguridad del estado actual.\nLa app se reiniciará después.`)) return;
+                        try {
+                          const msg = await api.restoreBackup(b.filename);
+                          setBackupSuccess(msg);
+                          setTimeout(() => api.restartApp(), 2000);
+                        } catch (err) { setBackupError(String(err)); }
+                      }}
+                      className="px-2 py-0.5 rounded text-xs bg-warning/20 text-warning hover:bg-warning/30 transition-colors"
+                      title="Restaurar este backup"
+                    >
+                      ↩ Restaurar
+                    </button>
                   </div>
                 </div>
               ))}
