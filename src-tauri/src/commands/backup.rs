@@ -52,7 +52,6 @@ pub fn copy_backup_to_desktop(filename: String, state: State<'_, AppState>) -> R
         return Err(format!("Backup no encontrado: {}", filename));
     }
 
-    // Get desktop path
     let desktop = dirs::desktop_dir()
         .ok_or("No se pudo determinar la ruta del Escritorio")?;
 
@@ -68,16 +67,30 @@ pub fn restore_backup(filename: String, state: State<'_, AppState>) -> Result<St
     let app_dir = state.config_path.parent()
         .unwrap_or(state.config_path.as_path());
     let backup_dir = app_dir.join("backups");
+    let source = backup_dir.join(&filename);
+
+    restore_from_path(&source, state)
+}
+
+#[tauri::command]
+pub fn restore_backup_from_file(file_path: String, state: State<'_, AppState>) -> Result<String, String> {
+    let source = std::path::PathBuf::from(&file_path);
+    restore_from_path(&source, state)
+}
+
+fn restore_from_path(source: &std::path::Path, state: State<'_, AppState>) -> Result<String, String> {
+    let app_dir = state.config_path.parent()
+        .unwrap_or(state.config_path.as_path());
+    let backup_dir = app_dir.join("backups");
     let db_path = app_dir.join("pos.db");
 
-    let source = backup_dir.join(&filename);
     if !source.exists() {
-        return Err(format!("Backup no encontrado: {}", filename));
+        return Err(format!("Archivo no encontrado: {}", source.display()));
     }
 
     // Validate it's a valid SQLite file
-    let header = std::fs::read(&source)
-        .map_err(|e| format!("Error leyendo backup: {}", e))?;
+    let header = std::fs::read(source)
+        .map_err(|e| format!("Error leyendo archivo: {}", e))?;
     if header.len() < 16 || &header[0..16] != b"SQLite format 3\0" {
         return Err("El archivo no es una base de datos SQLite válida".to_string());
     }
@@ -88,13 +101,10 @@ pub fn restore_backup(filename: String, state: State<'_, AppState>) -> Result<St
     std::fs::create_dir_all(&backup_dir).ok();
     let _ = std::fs::copy(&db_path, &safety_path);
 
-    // Close all pool connections by dropping them (get and immediately drop)
-    // Note: active connections will be invalidated after file replace
-    drop(state.db.get().ok());
-
     // Replace the database file
-    std::fs::copy(&source, &db_path)
-        .map_err(|e| format!("Error restaurando backup: {}", e))?;
+    drop(state.db.get().ok());
+    std::fs::copy(source, &db_path)
+        .map_err(|e| format!("Error restaurando: {}", e))?;
 
-    Ok(format!("Backup restaurado: {}. Se creó respaldo de seguridad: {}. Reinicia la aplicación para aplicar los cambios.", filename, safety_name))
+    Ok(format!("Restaurado correctamente. Respaldo de seguridad: {}. Reinicia la aplicación.", safety_name))
 }

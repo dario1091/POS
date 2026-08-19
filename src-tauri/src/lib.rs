@@ -216,6 +216,7 @@ pub fn run() {
             commands::backup::set_backup_config,
             commands::backup::copy_backup_to_desktop,
             commands::backup::restore_backup,
+            commands::backup::restore_backup_from_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

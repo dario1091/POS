@@ -487,6 +487,38 @@ function BackupSection() {
           </button>
         </div>
 
+        {/* Restore from external file */}
+        <div className="flex items-center justify-between border-t border-border pt-3">
+          <div>
+            <p className="text-sm text-foreground">Restaurar desde archivo</p>
+            <p className="text-xs text-muted-foreground">Seleccionar un backup .db desde cualquier ubicación</p>
+          </div>
+          <label className="px-4 py-2 rounded-md bg-warning/20 text-warning text-sm font-medium hover:bg-warning/30 transition-colors cursor-pointer">
+            Seleccionar .db
+            <input
+              type="file"
+              accept=".db"
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                // In Tauri webview, file input gives us the real path
+                const filePath = (file as any).path || file.name;
+                if (!confirm(`¿Restaurar desde "${file.name}"?\n\nSe creará un respaldo de seguridad del estado actual.\nLa app se reiniciará después.`)) {
+                  e.target.value = "";
+                  return;
+                }
+                try {
+                  const msg = await api.restoreBackupFromFile(filePath);
+                  setBackupSuccess(msg);
+                  setTimeout(() => api.restartApp(), 2000);
+                } catch (err) { setBackupError(String(err)); }
+                e.target.value = "";
+              }}
+            />
+          </label>
+        </div>
+
         {/* Config */}
         <div className="border-t border-border pt-3 space-y-3">
           <p className="text-sm font-medium text-foreground">Configuración automática</p>
