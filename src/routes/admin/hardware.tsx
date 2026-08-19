@@ -502,14 +502,14 @@ function BackupSection() {
               onChange={async (e) => {
                 const file = e.target.files?.[0];
                 if (!file) return;
-                // In Tauri webview, file input gives us the real path
-                const filePath = (file as any).path || file.name;
                 if (!confirm(`¿Restaurar desde "${file.name}"?\n\nSe creará un respaldo de seguridad del estado actual.\nLa app se reiniciará después.`)) {
                   e.target.value = "";
                   return;
                 }
                 try {
-                  const msg = await api.restoreBackupFromFile(filePath);
+                  const buffer = await file.arrayBuffer();
+                  const fileData = Array.from(new Uint8Array(buffer));
+                  const msg = await api.restoreBackupFromFile(fileData, file.name);
                   setBackupSuccess(msg);
                   setTimeout(() => api.restartApp(), 2000);
                 } catch (err) { setBackupError(String(err)); }

@@ -73,9 +73,29 @@ pub fn restore_backup(filename: String, state: State<'_, AppState>) -> Result<St
 }
 
 #[tauri::command]
-pub fn restore_backup_from_file(file_path: String, state: State<'_, AppState>) -> Result<String, String> {
-    let source = std::path::PathBuf::from(&file_path);
-    restore_from_path(&source, state)
+pub fn restore_backup_from_file(file_data: Vec<u8>, file_name: String, state: State<'_, AppState>) -> Result<String, String> {
+    // Validate it's a valid SQLite file
+    if file_data.len() < 16 || &file_data[0..16] != b"SQLite format 3\0" {
+        return Err("El archivo no es una base de datos SQLite válida".to_string());
+    }
+
+    let app_dir = state.config_path.parent()
+        .unwrap_or(state.config_path.as_path());
+    let backup_dir = app_dir.join("backups");
+    let db_path = app_dir.join("pos.db");
+
+    // Create a safety backup of current DB before overwriting
+    let safety_name = format!("pos_pre_restore_{}.db", chrono::Local::now().format("%Y-%m-%d_%H-%M-%S"));
+    let safety_path = backup_dir.join(&safety_name);
+    std::fs::create_dir_all(&backup_dir).ok();
+    let _ = std::fs::copy(&db_path, &safety_path);
+
+    // Write the uploaded file as the new database
+    drop(state.db.get().ok());
+    std::fs::write(&db_path, &file_data)
+        .map_err(|e| format!("Error restaurando: {}", e))?;
+
+    Ok(format!("Restaurado: {}. Respaldo de seguridad: {}. Reinicia la aplicación.", file_name, safety_name))
 }
 
 fn restore_from_path(source: &std::path::Path, state: State<'_, AppState>) -> Result<String, String> {
