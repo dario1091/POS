@@ -245,11 +245,11 @@ export const api = {
 
   // Recipes (recetas - panadería)
   createRecipe: (recipe: {
-    product_id: number; yield_quantity: number;
+    product_id: number; yield_quantity: number; procedure: string | null;
     supplies: { supply_id: number; quantity: number }[];
   }) => invoke<number>("create_recipe", { recipe }),
   listRecipes: () => invoke<{
-    id: number; product_id: number; product_name: string; yield_quantity: number; created_at: string;
+    id: number; product_id: number; product_name: string; yield_quantity: number; procedure: string | null; created_at: string;
     supplies: { supply_id: number; supply_name: string; quantity: number; unit: string }[];
   }[]>("list_recipes"),
   deleteRecipe: (recipeId: number) => invoke<void>("delete_recipe", { recipeId }),

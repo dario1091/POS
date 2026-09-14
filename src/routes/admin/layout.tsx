@@ -1,31 +1,67 @@
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { useEffect } from "react";
+import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useBusinessType } from "@/hooks/useBusinessType";
 import { useTheme } from "@/hooks/useTheme";
 
-const adminOnlyItems = [
-  { to: "/admin/dashboard", label: "Dashboard" },
-  { to: "/admin/reports", label: "Reportes" },
-  { to: "/admin/products", label: "Productos" },
-  { to: "/admin/categories", label: "Categorías" },
-  { to: "/admin/users", label: "Usuarios" },
-  { to: "/admin/network", label: "Red" },
-];
+interface MenuItem {
+  to: string;
+  label: string;
+  adminOnly?: boolean;
+  bakeryOnly?: boolean;
+}
 
-// Items solo para panadería (admin)
-const bakeryItems = [
-  { to: "/admin/supplies", label: "Insumos" },
-  { to: "/admin/recipes", label: "Recetas" },
-  { to: "/admin/production", label: "Producción" },
-];
+interface MenuSection {
+  title: string;
+  icon: string;
+  items: MenuItem[];
+}
 
-const sharedItems = [
-  { to: "/admin/inventory", label: "Inventario" },
-  { to: "/admin/cashcut", label: "Corte de caja" },
-  { to: "/admin/customers", label: "Clientes" },
-  { to: "/admin/labels", label: "Etiquetas" },
-  { to: "/admin/hardware", label: "Hardware" },
+const SECTIONS: MenuSection[] = [
+  {
+    title: "Reportes",
+    icon: "📊",
+    items: [
+      { to: "/admin/dashboard", label: "Dashboard", adminOnly: true },
+      { to: "/admin/reports", label: "Reportes", adminOnly: true },
+    ],
+  },
+  {
+    title: "Productos",
+    icon: "📦",
+    items: [
+      { to: "/admin/products", label: "Productos", adminOnly: true },
+      { to: "/admin/categories", label: "Categorías", adminOnly: true },
+      { to: "/admin/inventory", label: "Inventario" },
+    ],
+  },
+  {
+    title: "Panadería",
+    icon: "🥖",
+    items: [
+      { to: "/admin/supplies", label: "Insumos", adminOnly: true, bakeryOnly: true },
+      { to: "/admin/recipes", label: "Recetas", adminOnly: true, bakeryOnly: true },
+      { to: "/admin/production", label: "Producción", adminOnly: true, bakeryOnly: true },
+    ],
+  },
+  {
+    title: "Caja",
+    icon: "💰",
+    items: [
+      { to: "/admin/cashcut", label: "Corte de caja" },
+      { to: "/admin/customers", label: "Clientes" },
+    ],
+  },
+  {
+    title: "Configuración",
+    icon: "⚙️",
+    items: [
+      { to: "/admin/hardware", label: "Hardware" },
+      { to: "/admin/labels", label: "Etiquetas" },
+      { to: "/admin/network", label: "Red", adminOnly: true },
+      { to: "/admin/users", label: "Usuarios", adminOnly: true },
+    ],
+  },
 ];
 
 export function AdminLayout() {
@@ -33,10 +69,33 @@ export function AdminLayout() {
   const { businessType } = useBusinessType();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isAdmin = user?.role === "admin";
   const isBakery = businessType === "panaderia";
-  const navItems = user?.role === "admin"
-    ? [...adminOnlyItems, ...(isBakery ? bakeryItems : []), ...sharedItems]
-    : sharedItems;
+
+  // Filtrar secciones e items según permisos y tipo de negocio
+  const sections = SECTIONS
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => {
+        if (item.adminOnly && !isAdmin) return false;
+        if (item.bakeryOnly && !isBakery) return false;
+        return true;
+      }),
+    }))
+    .filter((section) => section.items.length > 0);
+
+  // Secciones expandidas: por defecto la que contiene la ruta activa
+  const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    SECTIONS.forEach((s) => {
+      initial[s.title] = s.items.some((i) => location.pathname.startsWith(i.to));
+    });
+    return initial;
+  });
+
+  const toggleSection = (title: string) =>
+    setExpanded((prev) => ({ ...prev, [title]: !prev[title] }));
 
   // Ctrl+P → volver al POS
   useEffect(() => {
@@ -58,27 +117,43 @@ export function AdminLayout() {
           <h2 className="text-lg font-bold text-foreground">POS Admin</h2>
           <p className="text-xs text-muted-foreground">{user?.full_name}</p>
         </div>
-        <nav className="flex-1 p-2 space-y-1">
+        <nav className="flex-1 p-2 space-y-1 overflow-auto">
           <NavLink
             to="/pos"
-            className="block px-3 py-2 rounded-md text-sm font-medium text-success hover:bg-accent transition-colors"
+            className="block px-3 py-2 rounded-md text-sm font-medium text-success hover:bg-accent transition-colors mb-2"
           >
             ← Ir al POS
           </NavLink>
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                `block px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  isActive
-                    ? "bg-primary text-primary-foreground"
-                    : "text-foreground hover:bg-accent"
-                }`
-              }
-            >
-              {item.label}
-            </NavLink>
+
+          {sections.map((section) => (
+            <div key={section.title}>
+              <button
+                onClick={() => toggleSection(section.title)}
+                className="w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:bg-accent transition-colors"
+              >
+                <span>{section.icon} {section.title}</span>
+                <span className="text-[10px]">{expanded[section.title] ? "▼" : "▶"}</span>
+              </button>
+              {expanded[section.title] && (
+                <div className="ml-2 mt-1 space-y-0.5 border-l border-border pl-2">
+                  {section.items.map((item) => (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      className={({ isActive }) =>
+                        `block px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                          isActive
+                            ? "bg-primary text-primary-foreground"
+                            : "text-foreground hover:bg-accent"
+                        }`
+                      }
+                    >
+                      {item.label}
+                    </NavLink>
+                  ))}
+                </div>
+              )}
+            </div>
           ))}
         </nav>
         <div className="p-2 border-t border-border space-y-1">

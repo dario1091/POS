@@ -420,20 +420,66 @@ pub fn set_business_type(business_type: String, state: State<'_, AppState>) -> R
         params![business_type],
     ).map_err(|e| e.to_string())?;
 
-    // Precargar categorías según el tipo de negocio (solo si no existían)
+    // Precargar según el tipo de negocio
     if business_type == "panaderia" {
+        // Desactivar categorías de abarrotes para que no aparezcan en el menú
+        conn.execute(
+            "UPDATE categories SET active = 0 WHERE name IN (
+                'Víveres','Bebidas','Snacks','Lácteos','Frutas y Verduras',
+                'Carnes y Embutidos','Panadería','Aseo Personal','Limpieza del Hogar',
+                'Medicamentos','Papelería','Mascotas','Licores','Congelados','Condimentos y Salsas'
+            )",
+            [],
+        ).map_err(|e| e.to_string())?;
+
+        // Categorías de panadería
         let bakery_categories = [
-            ("Panes", "Pan francés, pan de queso, integral"),
-            ("Pasteles y Tortas", "Tortas, ponqués, pasteles"),
-            ("Repostería", "Galletas, brownies, muffins"),
-            ("Bebidas", "Café, jugos, gaseosas"),
             ("Hojaldres", "Pasteles de pollo, arroz, hojaldre"),
+            ("Panes", "Pan de todo tipo"),
+            ("Galletería", "Galletas y afines"),
+            ("Repostería", "Tortas, ponqués, postres"),
+            ("Bebidas Frías", "Jugos, gaseosas, agua"),
+            ("Bebidas Calientes", "Café, chocolate, aromáticas"),
         ];
         for (name, desc) in bakery_categories {
             conn.execute(
                 "INSERT OR IGNORE INTO categories (name, description) VALUES (?1, ?2)",
                 params![name, desc],
             ).map_err(|e| e.to_string())?;
+        }
+
+        // Obtener id de la categoría Panes para asignar los productos iniciales
+        let panes_id: Option<i64> = conn.query_row(
+            "SELECT id FROM categories WHERE name = 'Panes' LIMIT 1",
+            [],
+            |row| row.get(0),
+        ).ok();
+
+        // Productos iniciales de panadería (solo si no hay productos de panadería aún)
+        let bakery_products: [(&str, f64); 8] = [
+            ("Pan de 500", 500.0),
+            ("Pan de 1000", 1000.0),
+            ("Pan cascarita", 500.0),
+            ("Pan de la abuela", 1000.0),
+            ("Pan tajado", 4000.0),
+            ("Pan tostado", 3500.0),
+            ("Pan de jamón y queso pequeño", 2000.0),
+            ("Pan de jamón y queso grande", 4000.0),
+        ];
+        for (name, price) in bakery_products {
+            // Evitar duplicar si ya existe un producto con ese nombre
+            let exists: bool = conn.query_row(
+                "SELECT 1 FROM products WHERE name = ?1 LIMIT 1",
+                params![name],
+                |_| Ok(true),
+            ).unwrap_or(false);
+            if !exists {
+                conn.execute(
+                    "INSERT INTO products (name, category_id, sale_price, cost_price, stock, unit, min_stock, price_type, active)
+                     VALUES (?1, ?2, ?3, 0, 0, 'pieza', 0, 'fijo', 1)",
+                    params![name, panes_id, price],
+                ).map_err(|e| e.to_string())?;
+            }
         }
     }
 

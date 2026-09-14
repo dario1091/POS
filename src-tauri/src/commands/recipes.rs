@@ -14,6 +14,7 @@ pub struct RecipeSupplyInput {
 pub struct CreateRecipe {
     pub product_id: i64,
     pub yield_quantity: f64,
+    pub procedure: Option<String>,
     pub supplies: Vec<RecipeSupplyInput>,
 }
 
@@ -31,6 +32,7 @@ pub struct Recipe {
     pub product_id: i64,
     pub product_name: String,
     pub yield_quantity: f64,
+    pub procedure: Option<String>,
     pub supplies: Vec<RecipeSupplyLine>,
     pub created_at: String,
 }
@@ -56,8 +58,8 @@ pub fn create_recipe(recipe: CreateRecipe, state: State<'_, AppState>) -> Result
 
     let result = (|| -> Result<i64, String> {
         conn.execute(
-            "INSERT INTO recipes (product_id, product_name, yield_quantity) VALUES (?1, ?2, ?3)",
-            params![recipe.product_id, product_name, recipe.yield_quantity],
+            "INSERT INTO recipes (product_id, product_name, yield_quantity, procedure) VALUES (?1, ?2, ?3, ?4)",
+            params![recipe.product_id, product_name, recipe.yield_quantity, recipe.procedure],
         ).map_err(|e| e.to_string())?;
         let recipe_id = conn.last_insert_rowid();
 
@@ -85,7 +87,7 @@ pub fn create_recipe(recipe: CreateRecipe, state: State<'_, AppState>) -> Result
 
 fn list_recipes_internal(conn: &rusqlite::Connection) -> Result<Vec<Recipe>, String> {
     let mut stmt = conn.prepare(
-        "SELECT id, product_id, product_name, yield_quantity, created_at FROM recipes WHERE active = 1 ORDER BY product_name ASC"
+        "SELECT id, product_id, product_name, yield_quantity, procedure, created_at FROM recipes WHERE active = 1 ORDER BY product_name ASC"
     ).map_err(|e| e.to_string())?;
 
     let recipe_rows = stmt.query_map([], |row| {
@@ -94,14 +96,15 @@ fn list_recipes_internal(conn: &rusqlite::Connection) -> Result<Vec<Recipe>, Str
             row.get::<_, i64>(1)?,
             row.get::<_, String>(2)?,
             row.get::<_, f64>(3)?,
-            row.get::<_, String>(4)?,
+            row.get::<_, Option<String>>(4)?,
+            row.get::<_, String>(5)?,
         ))
     }).map_err(|e| e.to_string())?
     .collect::<Result<Vec<_>, _>>()
     .map_err(|e| e.to_string())?;
 
     let mut recipes = Vec::new();
-    for (id, product_id, product_name, yield_quantity, created_at) in recipe_rows {
+    for (id, product_id, product_name, yield_quantity, procedure, created_at) in recipe_rows {
         let mut sstmt = conn.prepare(
             "SELECT supply_id, supply_name, quantity, unit FROM recipe_supplies WHERE recipe_id = ?1"
         ).map_err(|e| e.to_string())?;
@@ -115,7 +118,7 @@ fn list_recipes_internal(conn: &rusqlite::Connection) -> Result<Vec<Recipe>, Str
         }).map_err(|e| e.to_string())?;
         let supplies = supplies_rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
 
-        recipes.push(Recipe { id, product_id, product_name, yield_quantity, supplies, created_at });
+        recipes.push(Recipe { id, product_id, product_name, yield_quantity, procedure, supplies, created_at });
     }
 
     Ok(recipes)

@@ -4,7 +4,7 @@ import type { Supply, Product } from "@/lib/types";
 
 interface RecipeSupplyLine { supply_id: number; supply_name: string; quantity: number; unit: string; }
 interface Recipe {
-  id: number; product_id: number; product_name: string; yield_quantity: number; created_at: string;
+  id: number; product_id: number; product_name: string; yield_quantity: number; procedure: string | null; created_at: string;
   supplies: RecipeSupplyLine[];
 }
 interface PossibleProduction {
@@ -24,6 +24,7 @@ export function RecipesPage() {
   // Form
   const [productId, setProductId] = useState(0);
   const [yieldQty, setYieldQty] = useState(1);
+  const [procedure, setProcedure] = useState("");
   const [lines, setLines] = useState<{ supply_id: number; quantity: number }[]>([]);
 
   useEffect(() => { loadData(); }, []);
@@ -55,10 +56,11 @@ export function RecipesPage() {
     const validLines = lines.filter((l) => l.supply_id > 0 && l.quantity > 0);
     if (validLines.length === 0) { setError("Agrega al menos un insumo"); return; }
     try {
-      await api.createRecipe({ product_id: productId, yield_quantity: yieldQty, supplies: validLines });
+      await api.createRecipe({ product_id: productId, yield_quantity: yieldQty, procedure: procedure.trim() || null, supplies: validLines });
       setSuccess("Receta creada");
       setProductId(0);
       setYieldQty(1);
+      setProcedure("");
       setLines([]);
       setShowForm(false);
       await loadData();
@@ -79,7 +81,7 @@ export function RecipesPage() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-foreground">Recetas</h1>
         <button
-          onClick={() => { setShowForm(!showForm); setProductId(0); setYieldQty(1); setLines([]); }}
+          onClick={() => { setShowForm(!showForm); setProductId(0); setYieldQty(1); setProcedure(""); setLines([]); }}
           className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
         >
           {showForm ? "Cancelar" : "Nueva Receta"}
@@ -155,6 +157,19 @@ export function RecipesPage() {
             </p>
           </div>
 
+          {/* Procedimiento / pasos */}
+          <div className="border-t border-border pt-4">
+            <label className="text-sm font-medium text-foreground block mb-2">Procedimiento (pasos de elaboración)</label>
+            <textarea
+              value={procedure}
+              onChange={(e) => setProcedure(e.target.value)}
+              rows={6}
+              placeholder={"Ej:\n1. Mezclar harina con levadura y sal\n2. Agregar agua tibia y amasar 10 min\n3. Dejar reposar 1 hora\n4. Formar y hornear a 200°C por 25 min"}
+              className="w-full px-3 py-2 rounded-md bg-input border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-y"
+            />
+            <p className="text-xs text-muted-foreground mt-1">Documenta el proceso para conservar el know-how del negocio.</p>
+          </div>
+
           <button
             onClick={handleSave}
             className="px-4 py-2 rounded-md bg-success text-white text-sm font-medium hover:bg-success/90 transition-colors"
@@ -213,6 +228,12 @@ export function RecipesPage() {
                 </span>
               ))}
             </div>
+            {r.procedure && (
+              <div className="mt-3 pt-3 border-t border-border">
+                <p className="text-xs font-medium text-foreground mb-1">Procedimiento:</p>
+                <p className="text-xs text-muted-foreground whitespace-pre-wrap">{r.procedure}</p>
+              </div>
+            )}
           </div>
         ))}
       </div>
