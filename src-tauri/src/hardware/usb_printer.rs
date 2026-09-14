@@ -146,7 +146,8 @@ pub fn write_to_usb_printer(vendor_id: u16, product_id: u16, data: &[u8]) -> Res
     let (interface_num, out_endpoint) = find_bulk_out_endpoint(&device)
         .ok_or("No se encontró endpoint de salida en la impresora")?;
 
-    // Detach kernel driver if active (usblp)
+    // Detach kernel driver if active (usblp) — solo Linux
+    #[cfg(target_os = "linux")]
     if handle.kernel_driver_active(interface_num).unwrap_or(false) {
         handle.detach_kernel_driver(interface_num)
             .map_err(|e| format!("No se pudo desconectar driver del kernel: {}", e))?;
@@ -168,8 +169,9 @@ pub fn write_to_usb_printer(vendor_id: u16, product_id: u16, data: &[u8]) -> Res
         offset = end;
     }
 
-    // Release interface and re-attach kernel driver
+    // Release interface and re-attach kernel driver (Linux)
     let _ = handle.release_interface(interface_num);
+    #[cfg(target_os = "linux")]
     let _ = handle.attach_kernel_driver(interface_num);
 
     Ok(())

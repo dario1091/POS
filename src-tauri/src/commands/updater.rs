@@ -12,20 +12,26 @@ pub struct UpdateInfo {
     pub download_url: Option<String>,
 }
 
-/// Detect if system is rpm-based (Fedora/RHEL) or deb-based (Debian/Ubuntu)
+/// Detect the package type to download: msi (Windows), rpm (Fedora/RHEL) o deb (Debian/Ubuntu)
 fn detect_pkg_type() -> &'static str {
-    if let Ok(content) = std::fs::read_to_string("/etc/os-release") {
-        for line in content.lines() {
-            if let Some(id) = line.strip_prefix("ID=") {
-                let id = id.trim_matches('"');
-                match id {
-                    "fedora" | "rhel" | "centos" | "rocky" | "alma" => return "rpm",
-                    _ => return "deb",
+    #[cfg(target_os = "windows")]
+    { return "msi"; }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        if let Ok(content) = std::fs::read_to_string("/etc/os-release") {
+            for line in content.lines() {
+                if let Some(id) = line.strip_prefix("ID=") {
+                    let id = id.trim_matches('"');
+                    match id {
+                        "fedora" | "rhel" | "centos" | "rocky" | "alma" => return "rpm",
+                        _ => return "deb",
+                    }
                 }
             }
         }
+        "deb"
     }
-    "deb"
 }
 
 #[tauri::command]
@@ -96,41 +102,65 @@ pub async fn install_update(download_url: String) -> Result<String, String> {
     }
 
     let bytes = response.bytes().await.map_err(|e| e.to_string())?;
-    let tmp_path = format!("/tmp/pos-system-update.{}", pkg_type);
 
-    std::fs::write(&tmp_path, &bytes)
-        .map_err(|e| format!("Error guardando archivo: {}", e))?;
+    #[cfg(target_os = "windows")]
+    {
+        let _ = pkg_type;
+        let tmp_dir = std::env::temp_dir();
+        let tmp_path = tmp_dir.join("pos-system-update.msi");
+        std::fs::write(&tmp_path, &bytes)
+            .map_err(|e| format!("Error guardando archivo: {}", e))?;
+        // Lanzar el instalador MSI (el usuario confirma)
+        Command::new("msiexec")
+            .args(["/i", &tmp_path.to_string_lossy()])
+            .spawn()
+            .map_err(|e| format!("Error ejecutando instalador: {}", e))?;
+        Ok("Instalador iniciado. Sigue los pasos y reinicia la aplicación.".to_string())
+    }
 
-    // Install using pkexec (shows password dialog)
-    let output = if pkg_type == "rpm" {
-        Command::new("pkexec")
-            .args(["dnf", "install", "-y", &tmp_path])
-            .output()
-            .map_err(|e| format!("Error ejecutando instalador: {}", e))?
-    } else {
-        Command::new("pkexec")
-            .args(["apt", "install", "-y", &tmp_path])
-            .output()
-            .map_err(|e| format!("Error ejecutando instalador: {}", e))?
-    };
+    #[cfg(not(target_os = "windows"))]
+    {
+        let tmp_path = format!("/tmp/pos-system-update.{}", pkg_type);
+        std::fs::write(&tmp_path, &bytes)
+            .map_err(|e| format!("Error guardando archivo: {}", e))?;
 
-    // Clean up
-    let _ = std::fs::remove_file(&tmp_path);
+        // Install using pkexec (shows password dialog)
+        let output = if pkg_type == "rpm" {
+            Command::new("pkexec")
+                .args(["dnf", "install", "-y", &tmp_path])
+                .output()
+                .map_err(|e| format!("Error ejecutando instalador: {}", e))?
+        } else {
+            Command::new("pkexec")
+                .args(["apt", "install", "-y", &tmp_path])
+                .output()
+                .map_err(|e| format!("Error ejecutando instalador: {}", e))?
+        };
 
-    if output.status.success() {
-        Ok("Actualización instalada. Reinicia la aplicación.".to_string())
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        Err(format!("Error instalando: {}", stderr))
+        let _ = std::fs::remove_file(&tmp_path);
+
+        if output.status.success() {
+            Ok("Actualización instalada. Reinicia la aplicación.".to_string())
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            Err(format!("Error instalando: {}", stderr))
+        }
     }
 }
 
 #[tauri::command]
-pub fn restart_app(app: tauri::AppHandle) -> Result<(), String> {
+pub fn restart_app(_app: tauri::AppHandle) -> Result<(), String> {
     let exe_path = std::env::current_exe()
         .map(|p| p.display().to_string())
         .unwrap_or_else(|_| "pos-system".to_string());
 
+    #[cfg(target_os = "windows")]
+    std::process::Command::new("cmd")
+        .args(["/C", "timeout", "/T", "1", "&", "start", "", &exe_path])
+        .spawn()
+        .map_err(|e| format!("Error: {}", e))?;
+
+    #[cfg(not(target_os = "windows"))]
     std::process::Command::new("sh")
         .arg("-c")
         .arg(format!("sleep 1; nohup '{}' > /dev/null 2>&1 &", exe_path))
