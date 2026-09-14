@@ -1,6 +1,6 @@
 use rusqlite::Connection;
 
-const MIGRATIONS: &[&str] = &[MIGRATION_001, MIGRATION_002, MIGRATION_003, MIGRATION_004, MIGRATION_005, MIGRATION_006, MIGRATION_007, MIGRATION_008];
+const MIGRATIONS: &[&str] = &[MIGRATION_001, MIGRATION_002, MIGRATION_003, MIGRATION_004, MIGRATION_005, MIGRATION_006, MIGRATION_007, MIGRATION_008, MIGRATION_009];
 
 // Legacy migration count: number of migrations that were previously in the array
 // before the consolidation. This offset ensures new migrations get IDs that don't
@@ -359,6 +359,11 @@ CREATE INDEX IF NOT EXISTS idx_recipe_supplies_recipe ON recipe_supplies(recipe_
 const MIGRATION_008: &str = r#"
 -- Procedimiento / pasos de la receta (know-how del negocio)
 ALTER TABLE recipes ADD COLUMN procedure TEXT;
+"#;
+
+const MIGRATION_009: &str = r#"
+-- Insumos sin control de stock (ej: agua, gas): tienen costo pero no se descuentan
+ALTER TABLE supplies ADD COLUMN track_stock INTEGER NOT NULL DEFAULT 1;
 "#;
 
 pub fn run_migrations(conn: &Connection) -> Result<(), rusqlite::Error> {

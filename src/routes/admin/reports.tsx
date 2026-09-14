@@ -11,20 +11,26 @@ export function ReportsPage() {
   const [salesByRange, setSalesByRange] = useState<{ date: string; total: number; transactions: number }[]>([]);
   const [topProducts, setTopProducts] = useState<{ product_id: number; product_name: string; total_quantity: number; total_revenue: number; times_sold: number }[]>([]);
   const [salesByCategory, setSalesByCategory] = useState<{ category_id: number; category_name: string; total_revenue: number; total_quantity: number; total_transactions: number }[]>([]);
+  const [profit, setProfit] = useState<{
+    total_revenue: number; total_cost: number; total_profit: number; margin_pct: number;
+    products: { product_id: number; product_name: string; quantity: number; revenue: number; cost: number; profit: number; margin_pct: number }[];
+  } | null>(null);
   const [error, setError] = useState("");
   const [loaded, setLoaded] = useState(false);
 
   const loadReports = async () => {
     setError("");
     try {
-      const [rangeData, topData, categoryData] = await Promise.all([
+      const [rangeData, topData, categoryData, profitData] = await Promise.all([
         api.getSalesByRange(from, to),
         api.getTopProducts(from, to, 20),
         api.getSalesByCategory(from, to),
+        api.getProfitReport(from, to),
       ]);
       setSalesByRange(rangeData);
       setTopProducts(topData);
       setSalesByCategory(categoryData);
+      setProfit(profitData);
       setLoaded(true);
     } catch (err) {
       setError(String(err));
@@ -78,6 +84,63 @@ export function ReportsPage() {
               </p>
             </div>
           </div>
+
+          {/* Rentabilidad */}
+          {profit && (
+            <>
+              <h2 className="text-lg font-semibold text-foreground mb-3">Rentabilidad</h2>
+              <div className="grid grid-cols-4 gap-4 mb-4">
+                <div className="p-4 rounded-lg bg-card border border-border">
+                  <p className="text-xs text-muted-foreground mb-1">Ingresos</p>
+                  <p className="text-xl font-bold font-mono text-foreground">${profit.total_revenue.toFixed(2)}</p>
+                </div>
+                <div className="p-4 rounded-lg bg-card border border-border">
+                  <p className="text-xs text-muted-foreground mb-1">Costo</p>
+                  <p className="text-xl font-bold font-mono text-warning">${profit.total_cost.toFixed(2)}</p>
+                </div>
+                <div className="p-4 rounded-lg bg-card border border-border">
+                  <p className="text-xs text-muted-foreground mb-1">Ganancia</p>
+                  <p className={`text-xl font-bold font-mono ${profit.total_profit < 0 ? "text-destructive" : "text-success"}`}>${profit.total_profit.toFixed(2)}</p>
+                </div>
+                <div className="p-4 rounded-lg bg-card border border-border">
+                  <p className="text-xs text-muted-foreground mb-1">Margen</p>
+                  <p className={`text-xl font-bold font-mono ${profit.margin_pct < 0 ? "text-destructive" : "text-success"}`}>{profit.margin_pct.toFixed(1)}%</p>
+                </div>
+              </div>
+              <div className="rounded-lg border border-border overflow-hidden mb-8">
+                <table className="w-full">
+                  <thead className="bg-card">
+                    <tr className="border-b border-border">
+                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Producto</th>
+                      <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Cantidad</th>
+                      <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Ingresos</th>
+                      <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Costo</th>
+                      <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Ganancia</th>
+                      <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Margen</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {profit.products.map((p) => (
+                      <tr key={p.product_id} className="border-b border-border hover:bg-card/50">
+                        <td className="px-4 py-3 text-sm text-foreground">{p.product_name}</td>
+                        <td className="px-4 py-3 text-sm text-right font-mono text-muted-foreground">{p.quantity}</td>
+                        <td className="px-4 py-3 text-sm text-right font-mono text-foreground">${p.revenue.toFixed(2)}</td>
+                        <td className="px-4 py-3 text-sm text-right font-mono text-warning">${p.cost.toFixed(2)}</td>
+                        <td className={`px-4 py-3 text-sm text-right font-mono font-bold ${p.profit < 0 ? "text-destructive" : "text-success"}`}>${p.profit.toFixed(2)}</td>
+                        <td className={`px-4 py-3 text-sm text-right font-mono ${p.margin_pct < 0 ? "text-destructive" : "text-muted-foreground"}`}>{p.margin_pct.toFixed(0)}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {profit.products.length === 0 && (
+                  <p className="text-center py-8 text-muted-foreground text-sm">Sin datos de rentabilidad en el rango</p>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mb-8 -mt-6">
+                El costo se calcula con el costo unitario de cada producto (actualizado automáticamente desde su receta).
+              </p>
+            </>
+          )}
 
           {/* Sales by day */}
           <h2 className="text-lg font-semibold text-foreground mb-3">Ventas por día</h2>

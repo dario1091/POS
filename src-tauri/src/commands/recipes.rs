@@ -34,6 +34,9 @@ pub struct Recipe {
     pub yield_quantity: f64,
     pub procedure: Option<String>,
     pub supplies: Vec<RecipeSupplyLine>,
+    pub total_cost: f64,
+    pub unit_cost: f64,
+    pub sale_price: f64,
     pub created_at: String,
 }
 
@@ -63,18 +66,31 @@ pub fn create_recipe(recipe: CreateRecipe, state: State<'_, AppState>) -> Result
         ).map_err(|e| e.to_string())?;
         let recipe_id = conn.last_insert_rowid();
 
+        let mut total_cost = 0.0;
+
         for s in &recipe.supplies {
-            let (name, unit): (String, String) = conn.query_row(
-                "SELECT name, unit FROM supplies WHERE id = ?1",
+            let (name, unit, cost_per_unit): (String, String, f64) = conn.query_row(
+                "SELECT name, unit, cost_per_unit FROM supplies WHERE id = ?1",
                 params![s.supply_id],
-                |row| Ok((row.get(0)?, row.get(1)?)),
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             ).map_err(|_| format!("Insumo no encontrado (id {})", s.supply_id))?;
+
+            total_cost += s.quantity * cost_per_unit;
 
             conn.execute(
                 "INSERT INTO recipe_supplies (recipe_id, supply_id, supply_name, quantity, unit) VALUES (?1, ?2, ?3, ?4, ?5)",
                 params![recipe_id, s.supply_id, name, s.quantity, unit],
             ).map_err(|e| e.to_string())?;
         }
+
+        // Costo unitario = costo total de insumos / rendimiento
+        let unit_cost = if recipe.yield_quantity > 0.0 { total_cost / recipe.yield_quantity } else { 0.0 };
+
+        // Auto-actualizar el cost_price del producto con el costo calculado
+        conn.execute(
+            "UPDATE products SET cost_price = ?1, updated_at = datetime('now','localtime') WHERE id = ?2",
+            params![unit_cost, recipe.product_id],
+        ).map_err(|e| e.to_string())?;
 
         Ok(recipe_id)
     })();
@@ -105,20 +121,39 @@ fn list_recipes_internal(conn: &rusqlite::Connection) -> Result<Vec<Recipe>, Str
 
     let mut recipes = Vec::new();
     for (id, product_id, product_name, yield_quantity, procedure, created_at) in recipe_rows {
+        // Traer insumos con su costo actual (JOIN a supplies para usar el precio vigente)
         let mut sstmt = conn.prepare(
-            "SELECT supply_id, supply_name, quantity, unit FROM recipe_supplies WHERE recipe_id = ?1"
+            "SELECT rs.supply_id, rs.supply_name, rs.quantity, rs.unit, COALESCE(s.cost_per_unit, 0)
+             FROM recipe_supplies rs LEFT JOIN supplies s ON s.id = rs.supply_id
+             WHERE rs.recipe_id = ?1"
         ).map_err(|e| e.to_string())?;
-        let supplies_rows = sstmt.query_map(params![id], |row| {
-            Ok(RecipeSupplyLine {
-                supply_id: row.get(0)?,
-                supply_name: row.get(1)?,
-                quantity: row.get(2)?,
-                unit: row.get(3)?,
-            })
+        let rows = sstmt.query_map(params![id], |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, f64>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, f64>(4)?,
+            ))
         }).map_err(|e| e.to_string())?;
-        let supplies = supplies_rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
+        let raw = rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
 
-        recipes.push(Recipe { id, product_id, product_name, yield_quantity, procedure, supplies, created_at });
+        let mut total_cost = 0.0;
+        let mut supplies = Vec::new();
+        for (supply_id, supply_name, quantity, unit, cost_per_unit) in raw {
+            total_cost += quantity * cost_per_unit;
+            supplies.push(RecipeSupplyLine { supply_id, supply_name, quantity, unit });
+        }
+
+        let unit_cost = if yield_quantity > 0.0 { total_cost / yield_quantity } else { 0.0 };
+
+        let sale_price: f64 = conn.query_row(
+            "SELECT sale_price FROM products WHERE id = ?1",
+            params![product_id],
+            |row| row.get(0),
+        ).unwrap_or(0.0);
+
+        recipes.push(Recipe { id, product_id, product_name, yield_quantity, procedure, supplies, total_cost, unit_cost, sale_price, created_at });
     }
 
     Ok(recipes)

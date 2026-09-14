@@ -201,6 +201,7 @@ pub fn run() {
             commands::reports::get_daily_summary,
             commands::reports::get_sales_by_range,
             commands::reports::get_top_products,
+            commands::reports::get_profit_report,
             commands::reports::get_cash_cut_summary,
             commands::reports::create_cash_cut,
             commands::reports::get_cash_cuts,

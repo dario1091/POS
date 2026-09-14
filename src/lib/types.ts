@@ -179,6 +179,7 @@ export interface Supply {
   cost_per_unit: number;
   min_stock: number;
   active: boolean;
+  track_stock: boolean;
   created_at: string;
   updated_at: string;
 }

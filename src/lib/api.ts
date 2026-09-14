@@ -116,6 +116,10 @@ export const api = {
   getSalesByCategory: (from: string, to: string) => invoke<{
     category_id: number; category_name: string; total_revenue: number; total_quantity: number; total_transactions: number;
   }[]>("get_sales_by_category", { from, to }),
+  getProfitReport: (from: string, to: string) => invoke<{
+    total_revenue: number; total_cost: number; total_profit: number; margin_pct: number;
+    products: { product_id: number; product_name: string; quantity: number; revenue: number; cost: number; profit: number; margin_pct: number }[];
+  }>("get_profit_report", { from, to }),
   getCashCutSummary: () => invoke<{
     total_sales: number; cash_sales: number; card_sales: number;
     transfer_sales: number; credit_sales: number; transactions: number;
@@ -219,10 +223,10 @@ export const api = {
   restoreBackupFromFile: (fileData: number[], fileName: string) => invoke<string>("restore_backup_from_file", { fileData, fileName }),
 
   // Supplies (insumos - panadería)
-  createSupply: (supply: { name: string; unit: string; stock: number; cost_per_unit: number; min_stock: number }) =>
+  createSupply: (supply: { name: string; unit: string; stock: number; cost_per_unit: number; min_stock: number; track_stock: boolean }) =>
     invoke<Supply>("create_supply", { supply }),
   listSupplies: () => invoke<Supply[]>("list_supplies"),
-  updateSupply: (supply: { id: number; name?: string; unit?: string; cost_per_unit?: number; min_stock?: number; active?: boolean }) =>
+  updateSupply: (supply: { id: number; name?: string; unit?: string; cost_per_unit?: number; min_stock?: number; active?: boolean; track_stock?: boolean }) =>
     invoke<Supply>("update_supply", { supply }),
   adjustSupplyStock: (supplyId: number, newStock: number) =>
     invoke<Supply>("adjust_supply_stock", { supplyId, newStock }),
@@ -249,7 +253,8 @@ export const api = {
     supplies: { supply_id: number; quantity: number }[];
   }) => invoke<number>("create_recipe", { recipe }),
   listRecipes: () => invoke<{
-    id: number; product_id: number; product_name: string; yield_quantity: number; procedure: string | null; created_at: string;
+    id: number; product_id: number; product_name: string; yield_quantity: number; procedure: string | null;
+    total_cost: number; unit_cost: number; sale_price: number; created_at: string;
     supplies: { supply_id: number; supply_name: string; quantity: number; unit: string }[];
   }[]>("list_recipes"),
   deleteRecipe: (recipeId: number) => invoke<void>("delete_recipe", { recipeId }),

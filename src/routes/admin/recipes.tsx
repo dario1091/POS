@@ -4,7 +4,8 @@ import type { Supply, Product } from "@/lib/types";
 
 interface RecipeSupplyLine { supply_id: number; supply_name: string; quantity: number; unit: string; }
 interface Recipe {
-  id: number; product_id: number; product_name: string; yield_quantity: number; procedure: string | null; created_at: string;
+  id: number; product_id: number; product_name: string; yield_quantity: number; procedure: string | null;
+  total_cost: number; unit_cost: number; sale_price: number; created_at: string;
   supplies: RecipeSupplyLine[];
 }
 interface PossibleProduction {
@@ -221,6 +222,30 @@ export function RecipesPage() {
               </div>
               <button onClick={() => handleDelete(r.id, r.product_name)} className="text-xs text-destructive hover:text-destructive/80">Eliminar</button>
             </div>
+
+            {/* Costo y margen */}
+            {(() => {
+              const margin = r.sale_price - r.unit_cost;
+              const marginPct = r.sale_price > 0 ? (margin / r.sale_price) * 100 : 0;
+              const marginColor = margin < 0 ? "text-destructive" : marginPct < 20 ? "text-warning" : "text-success";
+              return (
+                <div className="grid grid-cols-3 gap-2 mb-3 text-xs">
+                  <div className="p-2 rounded bg-secondary/30">
+                    <p className="text-muted-foreground">Costo unitario</p>
+                    <p className="font-mono font-bold text-foreground">${r.unit_cost.toFixed(2)}</p>
+                  </div>
+                  <div className="p-2 rounded bg-secondary/30">
+                    <p className="text-muted-foreground">Precio venta</p>
+                    <p className="font-mono font-bold text-foreground">${r.sale_price.toFixed(2)}</p>
+                  </div>
+                  <div className="p-2 rounded bg-secondary/30">
+                    <p className="text-muted-foreground">Margen</p>
+                    <p className={`font-mono font-bold ${marginColor}`}>${margin.toFixed(2)} ({marginPct.toFixed(0)}%)</p>
+                  </div>
+                </div>
+              );
+            })()}
+
             <div className="flex flex-wrap gap-2">
               {r.supplies.map((s, i) => (
                 <span key={i} className="text-xs px-2 py-0.5 rounded bg-secondary text-secondary-foreground">

@@ -11,8 +11,8 @@ export function SuppliesPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const emptyForm = { name: "", unit: "kg", stock: 0, cost_per_unit: 0, min_stock: 0 };
-  const [formData, setFormData] = useState<{ name: string; unit: string; stock: number; cost_per_unit: number; min_stock: number }>(emptyForm);
+  const emptyForm = { name: "", unit: "kg", stock: 0, cost_per_unit: 0, min_stock: 0, track_stock: true };
+  const [formData, setFormData] = useState<{ name: string; unit: string; stock: number; cost_per_unit: number; min_stock: number; track_stock: boolean }>(emptyForm);
 
   // Stock adjustment
   const [adjustId, setAdjustId] = useState<number | null>(null);
@@ -40,6 +40,7 @@ export function SuppliesPage() {
           unit: formData.unit,
           cost_per_unit: formData.cost_per_unit,
           min_stock: formData.min_stock,
+          track_stock: formData.track_stock,
         });
         setSuccess("Insumo actualizado");
       } else {
@@ -55,7 +56,7 @@ export function SuppliesPage() {
 
   const handleEdit = (s: Supply) => {
     setEditingId(s.id);
-    setFormData({ name: s.name, unit: s.unit, stock: s.stock, cost_per_unit: s.cost_per_unit, min_stock: s.min_stock });
+    setFormData({ name: s.name, unit: s.unit, stock: s.stock, cost_per_unit: s.cost_per_unit, min_stock: s.min_stock, track_stock: s.track_stock });
     setShowForm(true);
   };
 
@@ -137,9 +138,22 @@ export function SuppliesPage() {
               placeholder="Stock mínimo"
               value={formData.min_stock || ""}
               onChange={(e) => setFormData({ ...formData, min_stock: Number(e.target.value) })}
-              className="px-3 py-2 rounded-md bg-input border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              disabled={!formData.track_stock}
+              className="px-3 py-2 rounded-md bg-input border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
             />
           </div>
+          <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+            <input
+              type="checkbox"
+              checked={formData.track_stock}
+              onChange={(e) => setFormData({ ...formData, track_stock: e.target.checked })}
+              className="w-4 h-4"
+            />
+            Controlar stock
+            <span className="text-xs text-muted-foreground">
+              (desactívalo para insumos como agua o gas: tienen costo pero no se descuentan)
+            </span>
+          </label>
           <button
             onClick={handleSave}
             className="px-4 py-2 rounded-md bg-success text-white text-sm font-medium hover:bg-success/90 transition-colors"
@@ -163,13 +177,18 @@ export function SuppliesPage() {
           </thead>
           <tbody>
             {supplies.map((s) => {
-              const isLow = s.min_stock > 0 && s.stock <= s.min_stock;
+              const isLow = s.track_stock && s.min_stock > 0 && s.stock <= s.min_stock;
               return (
                 <tr key={s.id} className="border-b border-border hover:bg-card/50">
-                  <td className="px-4 py-3 text-sm text-foreground">{s.name}</td>
+                  <td className="px-4 py-3 text-sm text-foreground">
+                    {s.name}
+                    {!s.track_stock && <span className="text-xs text-muted-foreground ml-2">(sin control de stock)</span>}
+                  </td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">{s.unit}</td>
                   <td className={`px-4 py-3 text-sm text-right font-mono ${isLow ? "text-warning font-bold" : "text-foreground"}`}>
-                    {adjustId === s.id ? (
+                    {!s.track_stock ? (
+                      <span className="text-muted-foreground">—</span>
+                    ) : adjustId === s.id ? (
                       <div className="flex items-center gap-1 justify-end">
                         <input
                           type="number"
@@ -188,9 +207,11 @@ export function SuppliesPage() {
                     )}
                   </td>
                   <td className="px-4 py-3 text-sm text-right font-mono text-muted-foreground">${s.cost_per_unit.toFixed(2)}</td>
-                  <td className="px-4 py-3 text-sm text-right font-mono text-muted-foreground">{s.min_stock}</td>
+                  <td className="px-4 py-3 text-sm text-right font-mono text-muted-foreground">{s.track_stock ? s.min_stock : "—"}</td>
                   <td className="px-4 py-3 text-sm space-x-3">
-                    <button onClick={() => { setAdjustId(s.id); setAdjustValue(String(s.stock)); }} className="text-xs text-primary hover:text-primary/80">Ajustar stock</button>
+                    {s.track_stock && (
+                      <button onClick={() => { setAdjustId(s.id); setAdjustValue(String(s.stock)); }} className="text-xs text-primary hover:text-primary/80">Ajustar stock</button>
+                    )}
                     <button onClick={() => handleEdit(s)} className="text-xs text-primary hover:text-primary/80">Editar</button>
                     <button onClick={() => handleDelete(s.id, s.name)} className="text-xs text-destructive hover:text-destructive/80">Eliminar</button>
                   </td>

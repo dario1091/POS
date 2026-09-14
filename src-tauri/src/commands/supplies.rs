@@ -4,6 +4,8 @@ use tauri::State;
 
 use crate::AppState;
 
+const SUPPLY_COLS: &str = "id, name, unit, stock, cost_per_unit, min_stock, active, track_stock, created_at, updated_at";
+
 #[derive(Debug, Serialize)]
 pub struct Supply {
     pub id: i64,
@@ -13,6 +15,7 @@ pub struct Supply {
     pub cost_per_unit: f64,
     pub min_stock: f64,
     pub active: bool,
+    pub track_stock: bool,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -24,7 +27,11 @@ pub struct CreateSupply {
     pub stock: f64,
     pub cost_per_unit: f64,
     pub min_stock: f64,
+    #[serde(default = "default_true")]
+    pub track_stock: bool,
 }
+
+fn default_true() -> bool { true }
 
 #[derive(Debug, Deserialize)]
 pub struct UpdateSupply {
@@ -34,6 +41,7 @@ pub struct UpdateSupply {
     pub cost_per_unit: Option<f64>,
     pub min_stock: Option<f64>,
     pub active: Option<bool>,
+    pub track_stock: Option<bool>,
 }
 
 fn row_to_supply(row: &rusqlite::Row) -> rusqlite::Result<Supply> {
@@ -45,8 +53,9 @@ fn row_to_supply(row: &rusqlite::Row) -> rusqlite::Result<Supply> {
         cost_per_unit: row.get(4)?,
         min_stock: row.get(5)?,
         active: row.get::<_, i64>(6)? != 0,
-        created_at: row.get(7)?,
-        updated_at: row.get(8)?,
+        track_stock: row.get::<_, i64>(7)? != 0,
+        created_at: row.get(8)?,
+        updated_at: row.get(9)?,
     })
 }
 
@@ -57,13 +66,13 @@ pub fn create_supply(supply: CreateSupply, state: State<'_, AppState>) -> Result
     }
     let conn = state.db.get().map_err(|e| e.to_string())?;
     conn.execute(
-        "INSERT INTO supplies (name, unit, stock, cost_per_unit, min_stock) VALUES (?1, ?2, ?3, ?4, ?5)",
-        params![supply.name.trim(), supply.unit, supply.stock, supply.cost_per_unit, supply.min_stock],
+        "INSERT INTO supplies (name, unit, stock, cost_per_unit, min_stock, track_stock) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![supply.name.trim(), supply.unit, supply.stock, supply.cost_per_unit, supply.min_stock, supply.track_stock as i64],
     ).map_err(|e| e.to_string())?;
 
     let id = conn.last_insert_rowid();
     conn.query_row(
-        "SELECT id, name, unit, stock, cost_per_unit, min_stock, active, created_at, updated_at FROM supplies WHERE id = ?1",
+        &format!("SELECT {} FROM supplies WHERE id = ?1", SUPPLY_COLS),
         params![id],
         row_to_supply,
     ).map_err(|e| e.to_string())
@@ -73,7 +82,7 @@ pub fn create_supply(supply: CreateSupply, state: State<'_, AppState>) -> Result
 pub fn list_supplies(state: State<'_, AppState>) -> Result<Vec<Supply>, String> {
     let conn = state.db.get().map_err(|e| e.to_string())?;
     let mut stmt = conn.prepare(
-        "SELECT id, name, unit, stock, cost_per_unit, min_stock, active, created_at, updated_at FROM supplies WHERE active = 1 ORDER BY name ASC"
+        &format!("SELECT {} FROM supplies WHERE active = 1 ORDER BY name ASC", SUPPLY_COLS)
     ).map_err(|e| e.to_string())?;
 
     let supplies = stmt.query_map([], row_to_supply)
@@ -102,9 +111,12 @@ pub fn update_supply(supply: UpdateSupply, state: State<'_, AppState>) -> Result
     if let Some(active) = supply.active {
         conn.execute("UPDATE supplies SET active = ?1, updated_at = datetime('now','localtime') WHERE id = ?2", params![active as i64, supply.id]).map_err(|e| e.to_string())?;
     }
+    if let Some(track) = supply.track_stock {
+        conn.execute("UPDATE supplies SET track_stock = ?1, updated_at = datetime('now','localtime') WHERE id = ?2", params![track as i64, supply.id]).map_err(|e| e.to_string())?;
+    }
 
     conn.query_row(
-        "SELECT id, name, unit, stock, cost_per_unit, min_stock, active, created_at, updated_at FROM supplies WHERE id = ?1",
+        &format!("SELECT {} FROM supplies WHERE id = ?1", SUPPLY_COLS),
         params![supply.id],
         row_to_supply,
     ).map_err(|e| e.to_string())
@@ -120,7 +132,7 @@ pub fn adjust_supply_stock(supply_id: i64, new_stock: f64, state: State<'_, AppS
     ).map_err(|e| e.to_string())?;
 
     conn.query_row(
-        "SELECT id, name, unit, stock, cost_per_unit, min_stock, active, created_at, updated_at FROM supplies WHERE id = ?1",
+        &format!("SELECT {} FROM supplies WHERE id = ?1", SUPPLY_COLS),
         params![supply_id],
         row_to_supply,
     ).map_err(|e| e.to_string())

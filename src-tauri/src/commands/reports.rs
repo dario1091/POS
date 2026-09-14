@@ -31,6 +31,74 @@ pub struct TopProduct {
 }
 
 #[derive(Debug, Serialize)]
+pub struct ProfitByProduct {
+    pub product_id: i64,
+    pub product_name: String,
+    pub quantity: f64,
+    pub revenue: f64,
+    pub cost: f64,
+    pub profit: f64,
+    pub margin_pct: f64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ProfitReport {
+    pub total_revenue: f64,
+    pub total_cost: f64,
+    pub total_profit: f64,
+    pub margin_pct: f64,
+    pub products: Vec<ProfitByProduct>,
+}
+
+#[tauri::command]
+pub fn get_profit_report(from: String, to: String, state: State<'_, AppState>) -> Result<ProfitReport, String> {
+    let conn = state.db.get().map_err(|e| e.to_string())?;
+
+    // Ingresos y costo por producto: costo = cantidad vendida * cost_price actual del producto
+    let mut stmt = conn.prepare(
+        "SELECT si.product_id, si.product_name,
+                SUM(si.quantity) as qty,
+                SUM(si.subtotal) as revenue,
+                SUM(si.quantity * COALESCE(p.cost_price, 0)) as cost
+         FROM sale_items si
+         JOIN sales s ON s.id = si.sale_id
+         LEFT JOIN products p ON p.id = si.product_id
+         WHERE date(s.created_at) >= date(?1) AND date(s.created_at) <= date(?2) AND s.cancelled = 0
+         GROUP BY si.product_id, si.product_name
+         ORDER BY (SUM(si.subtotal) - SUM(si.quantity * COALESCE(p.cost_price, 0))) DESC"
+    ).map_err(|e| e.to_string())?;
+
+    let rows = stmt.query_map(params![from, to], |row| {
+        Ok((
+            row.get::<_, i64>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, f64>(2)?,
+            row.get::<_, f64>(3)?,
+            row.get::<_, f64>(4)?,
+        ))
+    }).map_err(|e| e.to_string())?
+    .collect::<Result<Vec<_>, _>>()
+    .map_err(|e| e.to_string())?;
+
+    let mut products = Vec::new();
+    let mut total_revenue = 0.0;
+    let mut total_cost = 0.0;
+
+    for (product_id, product_name, quantity, revenue, cost) in rows {
+        let profit = revenue - cost;
+        let margin_pct = if revenue > 0.0 { (profit / revenue) * 100.0 } else { 0.0 };
+        total_revenue += revenue;
+        total_cost += cost;
+        products.push(ProfitByProduct { product_id, product_name, quantity, revenue, cost, profit, margin_pct });
+    }
+
+    let total_profit = total_revenue - total_cost;
+    let margin_pct = if total_revenue > 0.0 { (total_profit / total_revenue) * 100.0 } else { 0.0 };
+
+    Ok(ProfitReport { total_revenue, total_cost, total_profit, margin_pct, products })
+}
+
+#[derive(Debug, Serialize)]
 pub struct CashCutSummary {
     pub total_sales: f64,
     pub cash_sales: f64,

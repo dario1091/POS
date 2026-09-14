@@ -94,13 +94,15 @@ pub fn create_production(production: CreateProduction, state: State<'_, AppState
 
         // Process consumed supplies
         for s in &production.supplies {
-            let (name, unit, cost_per_unit, stock): (String, String, f64, f64) = conn.query_row(
-                "SELECT name, unit, cost_per_unit, stock FROM supplies WHERE id = ?1",
+            let (name, unit, cost_per_unit, stock, track_stock): (String, String, f64, f64, i64) = conn.query_row(
+                "SELECT name, unit, cost_per_unit, stock, track_stock FROM supplies WHERE id = ?1",
                 params![s.supply_id],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
             ).map_err(|_| format!("Insumo no encontrado (id {})", s.supply_id))?;
 
-            if s.quantity > stock {
+            let tracks = track_stock != 0;
+
+            if tracks && s.quantity > stock {
                 warnings.push(format!("{}: consumiste {} {} pero solo había {} {} (quedó en negativo)", name, s.quantity, unit, stock, unit));
             }
 
@@ -112,11 +114,13 @@ pub fn create_production(production: CreateProduction, state: State<'_, AppState
                 params![production_id, s.supply_id, name, s.quantity, unit, line_cost],
             ).map_err(|e| e.to_string())?;
 
-            // Deduct from supply stock
-            conn.execute(
-                "UPDATE supplies SET stock = stock - ?1, updated_at = datetime('now','localtime') WHERE id = ?2",
-                params![s.quantity, s.supply_id],
-            ).map_err(|e| e.to_string())?;
+            // Deduct from supply stock only if it's tracked (agua/gas no se descuentan)
+            if tracks {
+                conn.execute(
+                    "UPDATE supplies SET stock = stock - ?1, updated_at = datetime('now','localtime') WHERE id = ?2",
+                    params![s.quantity, s.supply_id],
+                ).map_err(|e| e.to_string())?;
+            }
         }
 
         // Process generated products
