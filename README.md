@@ -200,6 +200,26 @@ O por terminal:
 pos-update
 ```
 
+## Probar múltiples negocios en la misma máquina
+
+Para pruebas (ej. abarrotes y panadería a la vez), la variable de entorno `POS_DATA_DIR`
+permite lanzar instancias con base de datos, backups y configuración totalmente separados.
+
+Es **una sola variable**; lo que cambia es la ruta que le das en cada lanzamiento:
+
+```bash
+# Instancia 1 — abarrotes
+POS_DATA_DIR=~/pos-abarrotes pos-system
+
+# Instancia 2 — panadería (en otra terminal, puede correr al mismo tiempo)
+POS_DATA_DIR=~/pos-panaderia pos-system
+```
+
+Notas:
+- La variable aplica **solo a ese comando**; no queda fija en el sistema.
+- Cada ruta es un negocio independiente: eliges el tipo de negocio una vez en cada uno.
+- Sin la variable (ícono del menú o `pos-system` a secas) usa la base de datos predeterminada de siempre.
+
 ## Stack técnico
 
 - **Frontend**: React 19 + TypeScript + Tailwind CSS 4 + Vite 7
