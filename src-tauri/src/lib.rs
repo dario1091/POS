@@ -202,6 +202,7 @@ pub fn run() {
             commands::reports::get_sales_by_range,
             commands::reports::get_top_products,
             commands::reports::get_profit_report,
+            commands::reports::get_donation_report,
             commands::reports::get_cash_cut_summary,
             commands::reports::create_cash_cut,
             commands::reports::get_cash_cuts,
@@ -240,6 +241,7 @@ pub fn run() {
             // Recipes (recetas - panadería)
             commands::recipes::create_recipe,
             commands::recipes::list_recipes,
+            commands::recipes::update_recipe,
             commands::recipes::delete_recipe,
             commands::recipes::calculate_possible_production,
         ])

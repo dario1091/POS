@@ -165,6 +165,76 @@ pub fn list_recipes(state: State<'_, AppState>) -> Result<Vec<Recipe>, String> {
     list_recipes_internal(&conn)
 }
 
+#[derive(Debug, Deserialize)]
+pub struct UpdateRecipe {
+    pub id: i64,
+    pub yield_quantity: f64,
+    pub procedure: Option<String>,
+    pub supplies: Vec<RecipeSupplyInput>,
+}
+
+#[tauri::command]
+pub fn update_recipe(recipe: UpdateRecipe, state: State<'_, AppState>) -> Result<(), String> {
+    if recipe.yield_quantity <= 0.0 {
+        return Err("El rendimiento debe ser mayor a 0".to_string());
+    }
+    if recipe.supplies.is_empty() {
+        return Err("La receta debe tener al menos un insumo".to_string());
+    }
+
+    let conn = state.db.get().map_err(|e| e.to_string())?;
+
+    let product_id: i64 = conn.query_row(
+        "SELECT product_id FROM recipes WHERE id = ?1",
+        params![recipe.id],
+        |row| row.get(0),
+    ).map_err(|_| "Receta no encontrada".to_string())?;
+
+    conn.execute("BEGIN TRANSACTION", []).map_err(|e| e.to_string())?;
+
+    let result = (|| -> Result<(), String> {
+        // Actualizar cabecera
+        conn.execute(
+            "UPDATE recipes SET yield_quantity = ?1, procedure = ?2, updated_at = datetime('now','localtime') WHERE id = ?3",
+            params![recipe.yield_quantity, recipe.procedure, recipe.id],
+        ).map_err(|e| e.to_string())?;
+
+        // Reemplazar insumos: borrar los actuales y reinsertar
+        conn.execute("DELETE FROM recipe_supplies WHERE recipe_id = ?1", params![recipe.id])
+            .map_err(|e| e.to_string())?;
+
+        let mut total_cost = 0.0;
+        for s in &recipe.supplies {
+            let (name, unit, cost_per_unit): (String, String, f64) = conn.query_row(
+                "SELECT name, unit, cost_per_unit FROM supplies WHERE id = ?1",
+                params![s.supply_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            ).map_err(|_| format!("Insumo no encontrado (id {})", s.supply_id))?;
+
+            total_cost += s.quantity * cost_per_unit;
+
+            conn.execute(
+                "INSERT INTO recipe_supplies (recipe_id, supply_id, supply_name, quantity, unit) VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![recipe.id, s.supply_id, name, s.quantity, unit],
+            ).map_err(|e| e.to_string())?;
+        }
+
+        // Recalcular y actualizar cost_price del producto
+        let unit_cost = if recipe.yield_quantity > 0.0 { total_cost / recipe.yield_quantity } else { 0.0 };
+        conn.execute(
+            "UPDATE products SET cost_price = ?1, updated_at = datetime('now','localtime') WHERE id = ?2",
+            params![unit_cost, product_id],
+        ).map_err(|e| e.to_string())?;
+
+        Ok(())
+    })();
+
+    match result {
+        Ok(()) => { conn.execute("COMMIT", []).ok(); Ok(()) }
+        Err(e) => { conn.execute("ROLLBACK", []).ok(); Err(e) }
+    }
+}
+
 #[tauri::command]
 pub fn delete_recipe(recipe_id: i64, state: State<'_, AppState>) -> Result<(), String> {
     let conn = state.db.get().map_err(|e| e.to_string())?;

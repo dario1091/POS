@@ -29,6 +29,7 @@ export interface Product {
   unit: "pieza" | "kg";
   min_stock: number;
   price_type: "fijo" | "bascula" | "monto";
+  is_donation: boolean;
   active: boolean;
   created_at: string;
   updated_at: string;
@@ -99,6 +100,7 @@ export interface CreateProduct {
   unit: "pieza" | "kg";
   min_stock: number;
   price_type?: "fijo" | "bascula" | "monto";
+  is_donation?: boolean;
 }
 
 export interface UpdateProduct {
@@ -113,6 +115,7 @@ export interface UpdateProduct {
   unit?: string;
   min_stock?: number;
   active?: boolean;
+  is_donation?: boolean;
 }
 
 export interface CreateCustomer {

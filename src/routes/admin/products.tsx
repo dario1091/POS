@@ -1,8 +1,11 @@
 import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
+import { useBusinessType } from "@/hooks/useBusinessType";
 import type { Product, CreateProduct, Category, ProductBarcode } from "@/lib/types";
 
 export function ProductsPage() {
+  const { businessType } = useBusinessType();
+  const isBakery = businessType === "panaderia";
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -25,6 +28,7 @@ export function ProductsPage() {
     unit: "pieza",
     min_stock: 0,
     price_type: "fijo",
+    is_donation: false,
   };
 
   const [formData, setFormData] = useState<CreateProduct>(emptyForm);
@@ -66,6 +70,7 @@ export function ProductsPage() {
           cost_price: formData.cost_price,
           unit: formData.unit,
           min_stock: formData.min_stock,
+          is_donation: formData.is_donation,
         });
       } else {
         await api.createProduct(formData);
@@ -92,6 +97,7 @@ export function ProductsPage() {
       unit: product.unit,
       min_stock: product.min_stock,
       price_type: product.price_type,
+      is_donation: product.is_donation,
     });
     setShowForm(true);
   };
@@ -255,6 +261,18 @@ export function ProductsPage() {
               className="px-3 py-2 rounded-md bg-input border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
+          {isBakery && (
+            <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.is_donation ?? false}
+                onChange={(e) => setFormData({ ...formData, is_donation: e.target.checked })}
+                className="w-4 h-4"
+              />
+              Producto de donación
+              <span className="text-xs text-muted-foreground">(tiene costo pero no genera ingreso)</span>
+            </label>
+          )}
           <button
             onClick={handleCreate}
             className="px-4 py-2 rounded-md bg-success text-white text-sm font-medium hover:bg-success/90 transition-colors"

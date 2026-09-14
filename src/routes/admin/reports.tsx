@@ -1,8 +1,11 @@
 import { useState } from "react";
 import { api } from "@/lib/api";
+import { useBusinessType } from "@/hooks/useBusinessType";
 import { getLocalDate } from "@/lib/utils";
 
 export function ReportsPage() {
+  const { businessType } = useBusinessType();
+  const isBakery = businessType === "panaderia";
   const today = getLocalDate();
   const weekAgo = getLocalDate(-7);
 
@@ -14,6 +17,10 @@ export function ReportsPage() {
   const [profit, setProfit] = useState<{
     total_revenue: number; total_cost: number; total_profit: number; margin_pct: number;
     products: { product_id: number; product_name: string; quantity: number; revenue: number; cost: number; profit: number; margin_pct: number }[];
+  } | null>(null);
+  const [donations, setDonations] = useState<{
+    total_units: number; total_cost: number;
+    products: { product_id: number; product_name: string; quantity: number; cost: number }[];
   } | null>(null);
   const [error, setError] = useState("");
   const [loaded, setLoaded] = useState(false);
@@ -31,6 +38,9 @@ export function ReportsPage() {
       setTopProducts(topData);
       setSalesByCategory(categoryData);
       setProfit(profitData);
+      if (isBakery) {
+        setDonations(await api.getDonationReport(from, to));
+      }
       setLoaded(true);
     } catch (err) {
       setError(String(err));
@@ -138,6 +148,46 @@ export function ReportsPage() {
               </div>
               <p className="text-xs text-muted-foreground mb-8 -mt-6">
                 El costo se calcula con el costo unitario de cada producto (actualizado automáticamente desde su receta).
+              </p>
+            </>
+          )}
+
+          {/* Donaciones (solo panadería) */}
+          {isBakery && donations && donations.products.length > 0 && (
+            <>
+              <h2 className="text-lg font-semibold text-foreground mb-3">Donaciones (producidas)</h2>
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="p-4 rounded-lg bg-card border border-border">
+                  <p className="text-xs text-muted-foreground mb-1">Unidades donadas</p>
+                  <p className="text-xl font-bold font-mono text-foreground">{donations.total_units}</p>
+                </div>
+                <div className="p-4 rounded-lg bg-card border border-border">
+                  <p className="text-xs text-muted-foreground mb-1">Costo de lo donado</p>
+                  <p className="text-xl font-bold font-mono text-warning">${donations.total_cost.toFixed(2)}</p>
+                </div>
+              </div>
+              <div className="rounded-lg border border-border overflow-hidden mb-2">
+                <table className="w-full">
+                  <thead className="bg-card">
+                    <tr className="border-b border-border">
+                      <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Producto</th>
+                      <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Unidades</th>
+                      <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Costo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {donations.products.map((d) => (
+                      <tr key={d.product_id} className="border-b border-border hover:bg-card/50">
+                        <td className="px-4 py-3 text-sm text-foreground">{d.product_name}</td>
+                        <td className="px-4 py-3 text-sm text-right font-mono text-muted-foreground">{d.quantity}</td>
+                        <td className="px-4 py-3 text-sm text-right font-mono text-warning">${d.cost.toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-xs text-muted-foreground mb-8">
+                Basado en la producción de productos marcados como donación. Representa el costo de lo que regalaste.
               </p>
             </>
           )}

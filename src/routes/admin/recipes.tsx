@@ -23,10 +23,19 @@ export function RecipesPage() {
   const [showForm, setShowForm] = useState(false);
 
   // Form
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [productId, setProductId] = useState(0);
   const [yieldQty, setYieldQty] = useState(1);
   const [procedure, setProcedure] = useState("");
   const [lines, setLines] = useState<{ supply_id: number; quantity: number }[]>([]);
+
+  const resetForm = () => {
+    setEditingId(null);
+    setProductId(0);
+    setYieldQty(1);
+    setProcedure("");
+    setLines([]);
+  };
 
   useEffect(() => { loadData(); }, []);
   useEffect(() => {
@@ -52,20 +61,31 @@ export function RecipesPage() {
 
   const handleSave = async () => {
     setError("");
-    if (productId === 0) { setError("Selecciona el producto"); return; }
+    if (!editingId && productId === 0) { setError("Selecciona el producto"); return; }
     if (yieldQty <= 0) { setError("El rendimiento debe ser mayor a 0"); return; }
     const validLines = lines.filter((l) => l.supply_id > 0 && l.quantity > 0);
     if (validLines.length === 0) { setError("Agrega al menos un insumo"); return; }
     try {
-      await api.createRecipe({ product_id: productId, yield_quantity: yieldQty, procedure: procedure.trim() || null, supplies: validLines });
-      setSuccess("Receta creada");
-      setProductId(0);
-      setYieldQty(1);
-      setProcedure("");
-      setLines([]);
+      if (editingId) {
+        await api.updateRecipe({ id: editingId, yield_quantity: yieldQty, procedure: procedure.trim() || null, supplies: validLines });
+        setSuccess("Receta actualizada");
+      } else {
+        await api.createRecipe({ product_id: productId, yield_quantity: yieldQty, procedure: procedure.trim() || null, supplies: validLines });
+        setSuccess("Receta creada");
+      }
+      resetForm();
       setShowForm(false);
       await loadData();
     } catch (err) { setError(String(err)); }
+  };
+
+  const handleEdit = (r: Recipe) => {
+    setEditingId(r.id);
+    setProductId(r.product_id);
+    setYieldQty(r.yield_quantity);
+    setProcedure(r.procedure ?? "");
+    setLines(r.supplies.map((s) => ({ supply_id: s.supply_id, quantity: s.quantity })));
+    setShowForm(true);
   };
 
   const handleDelete = async (id: number, name: string) => {
@@ -82,7 +102,7 @@ export function RecipesPage() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-foreground">Recetas</h1>
         <button
-          onClick={() => { setShowForm(!showForm); setProductId(0); setYieldQty(1); setProcedure(""); setLines([]); }}
+          onClick={() => { if (showForm) { setShowForm(false); resetForm(); } else { resetForm(); setShowForm(true); } }}
           className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
         >
           {showForm ? "Cancelar" : "Nueva Receta"}
@@ -94,14 +114,15 @@ export function RecipesPage() {
 
       {showForm && (
         <div className="mb-6 p-4 rounded-lg bg-card border border-border space-y-4">
-          <h3 className="text-sm font-medium text-foreground">Nueva receta</h3>
+          <h3 className="text-sm font-medium text-foreground">{editingId ? "Editar receta" : "Nueva receta"}</h3>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-muted-foreground block mb-1">Producto</label>
               <select
                 value={productId}
                 onChange={(e) => setProductId(Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-md bg-input border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                disabled={editingId !== null}
+                className="w-full px-3 py-2 rounded-md bg-input border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
               >
                 <option value={0}>Seleccionar producto</option>
                 {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -175,7 +196,7 @@ export function RecipesPage() {
             onClick={handleSave}
             className="px-4 py-2 rounded-md bg-success text-white text-sm font-medium hover:bg-success/90 transition-colors"
           >
-            Guardar receta
+            {editingId ? "Actualizar receta" : "Guardar receta"}
           </button>
         </div>
       )}
@@ -220,7 +241,10 @@ export function RecipesPage() {
                 <span className="text-sm font-bold text-foreground">{r.product_name}</span>
                 <span className="text-xs text-muted-foreground ml-2">rinde {r.yield_quantity} uds</span>
               </div>
-              <button onClick={() => handleDelete(r.id, r.product_name)} className="text-xs text-destructive hover:text-destructive/80">Eliminar</button>
+              <div className="flex gap-3">
+                <button onClick={() => handleEdit(r)} className="text-xs text-primary hover:text-primary/80">Editar</button>
+                <button onClick={() => handleDelete(r.id, r.product_name)} className="text-xs text-destructive hover:text-destructive/80">Eliminar</button>
+              </div>
             </div>
 
             {/* Costo y margen */}

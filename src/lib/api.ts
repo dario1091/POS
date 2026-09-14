@@ -120,6 +120,10 @@ export const api = {
     total_revenue: number; total_cost: number; total_profit: number; margin_pct: number;
     products: { product_id: number; product_name: string; quantity: number; revenue: number; cost: number; profit: number; margin_pct: number }[];
   }>("get_profit_report", { from, to }),
+  getDonationReport: (from: string, to: string) => invoke<{
+    total_units: number; total_cost: number;
+    products: { product_id: number; product_name: string; quantity: number; cost: number }[];
+  }>("get_donation_report", { from, to }),
   getCashCutSummary: () => invoke<{
     total_sales: number; cash_sales: number; card_sales: number;
     transfer_sales: number; credit_sales: number; transactions: number;
@@ -257,6 +261,10 @@ export const api = {
     total_cost: number; unit_cost: number; sale_price: number; created_at: string;
     supplies: { supply_id: number; supply_name: string; quantity: number; unit: string }[];
   }[]>("list_recipes"),
+  updateRecipe: (recipe: {
+    id: number; yield_quantity: number; procedure: string | null;
+    supplies: { supply_id: number; quantity: number }[];
+  }) => invoke<void>("update_recipe", { recipe }),
   deleteRecipe: (recipeId: number) => invoke<void>("delete_recipe", { recipeId }),
   calculatePossibleProduction: () => invoke<{
     recipe_id: number; product_name: string; max_units: number; limiting_supply: string | null;

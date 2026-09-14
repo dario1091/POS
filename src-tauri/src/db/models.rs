@@ -33,6 +33,7 @@ pub struct Product {
     pub unit: String,
     pub min_stock: f64,
     pub price_type: String,
+    pub is_donation: bool,
     pub active: bool,
     pub created_at: String,
     pub updated_at: String,
@@ -122,6 +123,8 @@ pub struct CreateProduct {
     pub unit: String,
     pub min_stock: f64,
     pub price_type: Option<String>,
+    #[serde(default)]
+    pub is_donation: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -137,6 +140,7 @@ pub struct UpdateProduct {
     pub unit: Option<String>,
     pub min_stock: Option<f64>,
     pub active: Option<bool>,
+    pub is_donation: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]

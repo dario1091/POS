@@ -99,6 +99,64 @@ pub fn get_profit_report(from: String, to: String, state: State<'_, AppState>) -
 }
 
 #[derive(Debug, Serialize)]
+pub struct DonationByProduct {
+    pub product_id: i64,
+    pub product_name: String,
+    pub quantity: f64,
+    pub cost: f64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DonationReport {
+    pub total_units: f64,
+    pub total_cost: f64,
+    pub products: Vec<DonationByProduct>,
+}
+
+#[tauri::command]
+pub fn get_donation_report(from: String, to: String, state: State<'_, AppState>) -> Result<DonationReport, String> {
+    let conn = state.db.get().map_err(|e| e.to_string())?;
+
+    // Productos marcados como donación: unidades PRODUCIDAS en el período y su costo
+    // (las donaciones no pasan por el POS, se basan en producción)
+    let mut stmt = conn.prepare(
+        "SELECT pi.product_id, p.name,
+                SUM(pi.quantity) as qty,
+                SUM(pi.quantity * COALESCE(p.cost_price, 0)) as cost
+         FROM production_items pi
+         JOIN productions pr ON pr.id = pi.production_id
+         JOIN products p ON p.id = pi.product_id
+         WHERE p.is_donation = 1
+           AND date(pr.created_at) >= date(?1) AND date(pr.created_at) <= date(?2)
+         GROUP BY pi.product_id, p.name
+         ORDER BY qty DESC"
+    ).map_err(|e| e.to_string())?;
+
+    let rows = stmt.query_map(params![from, to], |row| {
+        Ok((
+            row.get::<_, i64>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, f64>(2)?,
+            row.get::<_, f64>(3)?,
+        ))
+    }).map_err(|e| e.to_string())?
+    .collect::<Result<Vec<_>, _>>()
+    .map_err(|e| e.to_string())?;
+
+    let mut products = Vec::new();
+    let mut total_units = 0.0;
+    let mut total_cost = 0.0;
+
+    for (product_id, product_name, quantity, cost) in rows {
+        total_units += quantity;
+        total_cost += cost;
+        products.push(DonationByProduct { product_id, product_name, quantity, cost });
+    }
+
+    Ok(DonationReport { total_units, total_cost, products })
+}
+
+#[derive(Debug, Serialize)]
 pub struct CashCutSummary {
     pub total_sales: f64,
     pub cash_sales: f64,
