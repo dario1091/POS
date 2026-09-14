@@ -1,7 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { BusinessTypeProvider, useBusinessType } from "@/hooks/useBusinessType";
 import { useTheme } from "@/hooks/useTheme";
 import { LoginPage } from "@/routes/login";
+import { BusinessSetupPage } from "@/routes/business-setup";
 import { PosPage } from "@/routes/pos/index";
 import { AdminLayout } from "@/routes/admin/layout";
 import { DashboardPage } from "@/routes/admin/dashboard";
@@ -12,6 +14,9 @@ import { ProductsPage } from "@/routes/admin/products";
 import { CategoriesPage } from "@/routes/admin/categories";
 import { CustomersPage } from "@/routes/admin/customers";
 import { InventoryPage } from "@/routes/admin/inventory";
+import { SuppliesPage } from "@/routes/admin/supplies";
+import { ProductionPage } from "@/routes/admin/production";
+import { RecipesPage } from "@/routes/admin/recipes";
 import { HardwarePage } from "@/routes/admin/hardware";
 import { NetworkPage } from "@/routes/admin/network";
 import { LabelsPage } from "@/routes/admin/labels";
@@ -41,13 +46,19 @@ function ProtectedRoute({ children, adminOnly = false }: { children: ReactNode; 
 
 function AppRoutes() {
   const { user, loading } = useAuth();
+  const { businessType, loading: btLoading } = useBusinessType();
 
-  if (loading) {
+  if (loading || btLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <p className="text-muted-foreground">Cargando...</p>
       </div>
     );
+  }
+
+  // Si hay usuario logueado pero no se ha configurado el tipo de negocio, mostrar setup
+  if (user && businessType === null) {
+    return <BusinessSetupPage />;
   }
 
   return (
@@ -78,6 +89,9 @@ function AppRoutes() {
         <Route path="customers" element={<CustomersPage />} />
         <Route path="users" element={<ProtectedRoute adminOnly><UsersPage /></ProtectedRoute>} />
         <Route path="inventory" element={<InventoryPage />} />
+        <Route path="supplies" element={<ProtectedRoute adminOnly><SuppliesPage /></ProtectedRoute>} />
+        <Route path="production" element={<ProtectedRoute adminOnly><ProductionPage /></ProtectedRoute>} />
+        <Route path="recipes" element={<ProtectedRoute adminOnly><RecipesPage /></ProtectedRoute>} />
         <Route path="hardware" element={<HardwarePage />} />
         <Route path="labels" element={<LabelsPage />} />
         <Route path="network" element={<ProtectedRoute adminOnly><NetworkPage /></ProtectedRoute>} />
@@ -92,7 +106,9 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppRoutes />
+        <BusinessTypeProvider>
+          <AppRoutes />
+        </BusinessTypeProvider>
       </AuthProvider>
     </BrowserRouter>
   );

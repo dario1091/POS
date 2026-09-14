@@ -14,6 +14,7 @@ import type {
   Sale,
   SaleItem,
   CreateSale,
+  Supply,
 } from "./types";
 
 // Auth
@@ -91,6 +92,8 @@ export const api = {
   configurePrinter: (deviceKey: string) => invoke<void>("configure_printer", { deviceKey }),
   configureBusiness: (name: string, address: string | null) => invoke<void>("configure_business", { name, address }),
   getHardwareConfig: () => invoke<Record<string, string>>("get_hardware_config"),
+  getBusinessType: () => invoke<string | null>("get_business_type"),
+  setBusinessType: (businessType: string) => invoke<void>("set_business_type", { businessType }),
   listSerialPorts: () => invoke<string[]>("list_serial_ports"),
   listPrinters: () => invoke<{ path: string; label: string }[]>("list_printers"),
 
@@ -214,4 +217,44 @@ export const api = {
   copyBackupToDesktop: (filename: string) => invoke<string>("copy_backup_to_desktop", { filename }),
   restoreBackup: (filename: string) => invoke<string>("restore_backup", { filename }),
   restoreBackupFromFile: (fileData: number[], fileName: string) => invoke<string>("restore_backup_from_file", { fileData, fileName }),
+
+  // Supplies (insumos - panadería)
+  createSupply: (supply: { name: string; unit: string; stock: number; cost_per_unit: number; min_stock: number }) =>
+    invoke<Supply>("create_supply", { supply }),
+  listSupplies: () => invoke<Supply[]>("list_supplies"),
+  updateSupply: (supply: { id: number; name?: string; unit?: string; cost_per_unit?: number; min_stock?: number; active?: boolean }) =>
+    invoke<Supply>("update_supply", { supply }),
+  adjustSupplyStock: (supplyId: number, newStock: number) =>
+    invoke<Supply>("adjust_supply_stock", { supplyId, newStock }),
+  deleteSupply: (supplyId: number) => invoke<void>("delete_supply", { supplyId }),
+
+  // Production (producción - panadería)
+  createProduction: (production: {
+    supplies: { supply_id: number; quantity: number }[];
+    items: { product_id: number; quantity: number }[];
+    notes: string | null;
+  }) => invoke<{ id: number; total_supply_cost: number; supplies_count: number; items_count: number; warnings: string[]; created_at: string }>("create_production", { production }),
+  listProductions: (limit: number) => invoke<{
+    id: number; notes: string | null; total_supply_cost: number; supplies_count: number; items_count: number; created_at: string;
+  }[]>("list_productions", { limit }),
+  getProductionDetail: (productionId: number) => invoke<{
+    id: number; notes: string | null; total_supply_cost: number; created_at: string;
+    supplies: { supply_name: string; quantity: number; unit: string; cost: number }[];
+    items: { product_name: string; quantity: number }[];
+  }>("get_production_detail", { productionId }),
+
+  // Recipes (recetas - panadería)
+  createRecipe: (recipe: {
+    product_id: number; yield_quantity: number;
+    supplies: { supply_id: number; quantity: number }[];
+  }) => invoke<number>("create_recipe", { recipe }),
+  listRecipes: () => invoke<{
+    id: number; product_id: number; product_name: string; yield_quantity: number; created_at: string;
+    supplies: { supply_id: number; supply_name: string; quantity: number; unit: string }[];
+  }[]>("list_recipes"),
+  deleteRecipe: (recipeId: number) => invoke<void>("delete_recipe", { recipeId }),
+  calculatePossibleProduction: () => invoke<{
+    recipe_id: number; product_name: string; max_units: number; limiting_supply: string | null;
+    details: { supply_name: string; available: number; needed_per_batch: number; unit: string; possible_batches: number }[];
+  }[]>("calculate_possible_production"),
 };

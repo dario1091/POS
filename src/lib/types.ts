@@ -170,3 +170,15 @@ export interface LoginRequest {
   username: string;
   password: string;
 }
+
+export interface Supply {
+  id: number;
+  name: string;
+  unit: "kg" | "g" | "l" | "ml" | "unidad";
+  stock: number;
+  cost_per_unit: number;
+  min_stock: number;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}

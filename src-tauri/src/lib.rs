@@ -173,6 +173,8 @@ pub fn run() {
             commands::hardware::configure_printer,
             commands::hardware::configure_business,
             commands::hardware::get_hardware_config,
+            commands::hardware::get_business_type,
+            commands::hardware::set_business_type,
             commands::hardware::list_serial_ports,
             commands::hardware::list_printers,
             commands::hardware::print_delivery_receipt,
@@ -217,6 +219,21 @@ pub fn run() {
             commands::backup::copy_backup_to_desktop,
             commands::backup::restore_backup,
             commands::backup::restore_backup_from_file,
+            // Supplies (insumos - panadería)
+            commands::supplies::create_supply,
+            commands::supplies::list_supplies,
+            commands::supplies::update_supply,
+            commands::supplies::adjust_supply_stock,
+            commands::supplies::delete_supply,
+            // Production (producción - panadería)
+            commands::production::create_production,
+            commands::production::list_productions,
+            commands::production::get_production_detail,
+            // Recipes (recetas - panadería)
+            commands::recipes::create_recipe,
+            commands::recipes::list_recipes,
+            commands::recipes::delete_recipe,
+            commands::recipes::calculate_possible_production,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

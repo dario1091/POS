@@ -393,3 +393,49 @@ pub fn test_label_printer(state: State<'_, AppState>) -> Result<String, String> 
 pub fn list_label_printers() -> Result<Vec<serde_json::Value>, String> {
     list_printers()
 }
+
+#[tauri::command]
+pub fn get_business_type(state: State<'_, AppState>) -> Result<Option<String>, String> {
+    let conn = state.db.get().map_err(|e| e.to_string())?;
+    let result = conn.query_row(
+        "SELECT value FROM config WHERE key = 'business_type'",
+        [],
+        |row| row.get::<_, String>(0),
+    );
+    match result {
+        Ok(v) => Ok(Some(v)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+#[tauri::command]
+pub fn set_business_type(business_type: String, state: State<'_, AppState>) -> Result<(), String> {
+    if business_type != "abarrotes" && business_type != "panaderia" {
+        return Err("Tipo de negocio inválido. Usa 'abarrotes' o 'panaderia'".to_string());
+    }
+    let conn = state.db.get().map_err(|e| e.to_string())?;
+    conn.execute(
+        "INSERT OR REPLACE INTO config (key, value) VALUES ('business_type', ?1)",
+        params![business_type],
+    ).map_err(|e| e.to_string())?;
+
+    // Precargar categorías según el tipo de negocio (solo si no existían)
+    if business_type == "panaderia" {
+        let bakery_categories = [
+            ("Panes", "Pan francés, pan de queso, integral"),
+            ("Pasteles y Tortas", "Tortas, ponqués, pasteles"),
+            ("Repostería", "Galletas, brownies, muffins"),
+            ("Bebidas", "Café, jugos, gaseosas"),
+            ("Hojaldres", "Pasteles de pollo, arroz, hojaldre"),
+        ];
+        for (name, desc) in bakery_categories {
+            conn.execute(
+                "INSERT OR IGNORE INTO categories (name, description) VALUES (?1, ?2)",
+                params![name, desc],
+            ).map_err(|e| e.to_string())?;
+        }
+    }
+
+    Ok(())
+}

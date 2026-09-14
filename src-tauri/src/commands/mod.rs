@@ -10,3 +10,6 @@ pub mod network;
 pub mod reports;
 pub mod updater;
 pub mod backup;
+pub mod supplies;
+pub mod production;
+pub mod recipes;

@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useBusinessType } from "@/hooks/useBusinessType";
 import { useTheme } from "@/hooks/useTheme";
 
 const adminOnlyItems = [
@@ -10,6 +11,13 @@ const adminOnlyItems = [
   { to: "/admin/categories", label: "Categorías" },
   { to: "/admin/users", label: "Usuarios" },
   { to: "/admin/network", label: "Red" },
+];
+
+// Items solo para panadería (admin)
+const bakeryItems = [
+  { to: "/admin/supplies", label: "Insumos" },
+  { to: "/admin/recipes", label: "Recetas" },
+  { to: "/admin/production", label: "Producción" },
 ];
 
 const sharedItems = [
@@ -22,9 +30,13 @@ const sharedItems = [
 
 export function AdminLayout() {
   const { user, logout } = useAuth();
+  const { businessType } = useBusinessType();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
-  const navItems = user?.role === "admin" ? [...adminOnlyItems, ...sharedItems] : sharedItems;
+  const isBakery = businessType === "panaderia";
+  const navItems = user?.role === "admin"
+    ? [...adminOnlyItems, ...(isBakery ? bakeryItems : []), ...sharedItems]
+    : sharedItems;
 
   // Ctrl+P → volver al POS
   useEffect(() => {

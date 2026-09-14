@@ -1,6 +1,6 @@
 use rusqlite::Connection;
 
-const MIGRATIONS: &[&str] = &[MIGRATION_001, MIGRATION_002, MIGRATION_003];
+const MIGRATIONS: &[&str] = &[MIGRATION_001, MIGRATION_002, MIGRATION_003, MIGRATION_004, MIGRATION_005, MIGRATION_006, MIGRATION_007];
 
 // Legacy migration count: number of migrations that were previously in the array
 // before the consolidation. This offset ensures new migrations get IDs that don't
@@ -268,6 +268,92 @@ ALTER TABLE cash_cuts ADD COLUMN deliveries_total REAL NOT NULL DEFAULT 0;
 ALTER TABLE cash_cuts ADD COLUMN deliveries_count INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE cash_cuts ADD COLUMN supplier_payments_total REAL NOT NULL DEFAULT 0;
 ALTER TABLE cash_cuts ADD COLUMN supplier_payments_count INTEGER NOT NULL DEFAULT 0;
+"#;
+
+const MIGRATION_004: &str = r#"
+-- Instalaciones existentes: si ya hay productos y no hay business_type definido,
+-- se asume 'abarrotes' para no romper el flujo actual.
+INSERT OR IGNORE INTO config (key, value)
+SELECT 'business_type', 'abarrotes'
+WHERE EXISTS (SELECT 1 FROM products WHERE id > 6);
+"#;
+
+const MIGRATION_005: &str = r#"
+-- Insumos / materias primas (para panadería)
+CREATE TABLE IF NOT EXISTS supplies (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    unit TEXT NOT NULL DEFAULT 'kg' CHECK(unit IN ('kg', 'g', 'l', 'ml', 'unidad')),
+    stock REAL NOT NULL DEFAULT 0,
+    cost_per_unit REAL NOT NULL DEFAULT 0,
+    min_stock REAL NOT NULL DEFAULT 0,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_supplies_name ON supplies(name);
+"#;
+
+const MIGRATION_006: &str = r#"
+-- Producciones (para panadería): consume insumos, genera productos terminados
+CREATE TABLE IF NOT EXISTS productions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    notes TEXT,
+    total_supply_cost REAL NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
+
+-- Insumos consumidos en una producción
+CREATE TABLE IF NOT EXISTS production_supplies (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    production_id INTEGER NOT NULL REFERENCES productions(id),
+    supply_id INTEGER NOT NULL REFERENCES supplies(id),
+    supply_name TEXT NOT NULL,
+    quantity REAL NOT NULL,
+    unit TEXT NOT NULL,
+    cost REAL NOT NULL DEFAULT 0
+);
+
+-- Productos terminados generados en una producción
+CREATE TABLE IF NOT EXISTS production_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    production_id INTEGER NOT NULL REFERENCES productions(id),
+    product_id INTEGER NOT NULL REFERENCES products(id),
+    product_name TEXT NOT NULL,
+    quantity REAL NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_productions_created_at ON productions(created_at);
+CREATE INDEX IF NOT EXISTS idx_production_supplies_production ON production_supplies(production_id);
+CREATE INDEX IF NOT EXISTS idx_production_items_production ON production_items(production_id);
+"#;
+
+const MIGRATION_007: &str = r#"
+-- Recetas (para panadería): definen insumos y rendimiento de un producto
+CREATE TABLE IF NOT EXISTS recipes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id INTEGER NOT NULL REFERENCES products(id),
+    product_name TEXT NOT NULL,
+    yield_quantity REAL NOT NULL DEFAULT 1,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
+
+-- Insumos que consume una receta (para el rendimiento indicado)
+CREATE TABLE IF NOT EXISTS recipe_supplies (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    recipe_id INTEGER NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+    supply_id INTEGER NOT NULL REFERENCES supplies(id),
+    supply_name TEXT NOT NULL,
+    quantity REAL NOT NULL,
+    unit TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_recipes_product ON recipes(product_id);
+CREATE INDEX IF NOT EXISTS idx_recipe_supplies_recipe ON recipe_supplies(recipe_id);
 "#;
 
 pub fn run_migrations(conn: &Connection) -> Result<(), rusqlite::Error> {
