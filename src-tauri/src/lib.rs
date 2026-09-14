@@ -62,10 +62,17 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             // Get app data directory for SQLite
-            let app_data_dir = app
-                .path()
-                .app_data_dir()
-                .expect("Failed to get app data directory");
+            // Permite sobreescribir el directorio de datos para pruebas:
+            //   POS_DATA_DIR=/ruta/abarrotes  ./pos-system
+            //   POS_DATA_DIR=/ruta/panaderia  ./pos-system
+            // Cada directorio tiene su propia DB, backups y config aislados.
+            let app_data_dir = match std::env::var("POS_DATA_DIR") {
+                Ok(dir) if !dir.trim().is_empty() => std::path::PathBuf::from(dir),
+                _ => app
+                    .path()
+                    .app_data_dir()
+                    .expect("Failed to get app data directory"),
+            };
 
             std::fs::create_dir_all(&app_data_dir)
                 .expect("Failed to create app data directory");
